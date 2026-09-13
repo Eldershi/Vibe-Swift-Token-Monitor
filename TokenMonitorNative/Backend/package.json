@@ -1,0 +1,19 @@
+{
+  "name": "token-monitor-native-beta-backend",
+  "version": "0.5.0",
+  "private": true,
+  "scripts": {
+    "test": "node --test tests/*.test.cjs"
+  },
+  "engines": {
+    "node": ">=24.19.0 <25"
+  },
+  "dependencies": {
+    "chokidar": "4.0.3",
+    "dotenv": "17.4.2",
+    "semver": "7.8.5",
+    "tar": "7.5.22",
+    "undici": "7.29.0",
+    "tokscale": "4.15.1"
+  }
+}

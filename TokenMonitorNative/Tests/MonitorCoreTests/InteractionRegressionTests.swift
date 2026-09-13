@@ -137,3 +137,73 @@ final class TimestampCacheTests: XCTestCase {
         XCTAssertEqual(try PreferencesFile(url: url).load(), value)
     }
 }
+
+@MainActor final class NativeScrollIntegrationTests: XCTestCase {
+    func testHorizontalWheelAndRelayoutPreserveManualPosition() {
+        let view = HistoryNativeScroll(content: AnyView(Color.clear.frame(width: 1500, height: 160)))
+        view.frame = NSRect(x: 0, y: 0, width: 320, height: 160)
+        view.documentSize = NSSize(width: 1500, height: 160)
+        view.layout()
+        XCTAssertEqual(view.contentView.bounds.minX, 1180, accuracy: 1)
+        // Deliver a real NSEvent into the shipping scroll handler, not just its policy.
+        let cg = CGEvent(scrollWheelEvent2Source: nil, units: .pixel, wheelCount: 2, wheel1: 0, wheel2: 120, wheel3: 0)!
+        view.scrollWheel(with: NSEvent(cgEvent: cg)!)
+        let browsed = view.contentView.bounds.minX
+        XCTAssertLessThan(browsed, 1180)
+        view.layout(); XCTAssertEqual(view.contentView.bounds.minX, browsed, accuracy: 1)
+        view.documentSize.width = 1600; view.layout()
+        XCTAssertEqual(view.contentView.bounds.minX, browsed, accuracy: 1)
+        view.position.reset(); view.layout()
+        XCTAssertEqual(view.contentView.bounds.minX, 1280, accuracy: 1)
+    }
+    func testActivityFillsRealNativeViewportAcrossWidthChanges() async throws {
+        let store = AppStore(ephemeral: true)
+        store.preferences.tool = ""
+        store.now = DateCodec.parse("2026-09-13T04:00:00Z")!
+        store.history = try History.decode(Data("{\"daily\":[{\"date\":\"2026-09-13\",\"tokens\":0}],\"monthly\":[]}".utf8))
+        let host = NSHostingView(rootView: ActivityView(store: store))
+        host.sizingOptions = []
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 320, height: 200), styleMask: [.titled], backing: .buffered, defer: false)
+        window.contentView = host
+        defer { window.orderOut(nil) }
+        func chart(_ view: NSView) -> HistoryNativeScroll? {
+            if let value = view as? HistoryNativeScroll { return value }
+            for child in view.subviews { if let value = chart(child) { return value } }
+            return nil
+        }
+        for width in [320.0, 600, 1000, 1600, 600] {
+            window.setContentSize(NSSize(width: width, height: 200))
+            for _ in 0..<5 { host.layoutSubtreeIfNeeded(); try? await Task.sleep(for: .milliseconds(20)) }
+            let view = try XCTUnwrap(chart(host))
+            XCTAssertEqual(view.contentView.bounds.width, width, accuracy: 1)
+            XCTAssertGreaterThanOrEqual(view.documentSize.width, width)
+            XCTAssertLessThan(view.documentSize.width - width, 11)
+            XCTAssertEqual(view.host.frame.width, view.documentSize.width, accuracy: 1)
+            XCTAssertEqual(view.drawingKey?.size.width, view.documentSize.width)
+        }
+    }
+    func testPageContentIsTopAlignedWhenShortAndWidthTracksViewport() async {
+        let scroll = PageNativeScroll(content: AnyView(Text("short")))
+        let marker = PositionMarker()
+        scroll.setContent(AnyView(VStack(spacing: 0) { MarkerView(marker: marker).frame(height: 30); Text("short") }))
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 600, height: 900), styleMask: [.titled], backing: .buffered, defer: false)
+        window.contentView = scroll
+        defer { window.orderOut(nil) }
+        for width in [320.0, 600, 1000] {
+            window.setContentSize(NSSize(width: width, height: 900))
+            for _ in 0..<4 { window.contentView?.layoutSubtreeIfNeeded(); try? await Task.sleep(for: .milliseconds(20)) }
+            XCTAssertEqual(scroll.host.frame.width, scroll.contentView.bounds.width, accuracy: 1)
+            if let view = marker.view {
+                let rect = scroll.host.convert(view.bounds, from: view)
+                let top = scroll.host.isFlipped ? rect.minY : scroll.host.bounds.height - rect.maxY
+                XCTAssertEqual(top, 0, accuracy: 1, "Short pages must not be centered")
+            } else { XCTFail("Marker must be hosted") }
+        }
+    }
+}
+private final class PositionMarker { weak var view: NSView? }
+private struct MarkerView: NSViewRepresentable {
+    let marker: PositionMarker
+    func makeNSView(context: Context) -> NSView { let view = NSView(); marker.view = view; return view }
+    func updateNSView(_ nsView: NSView, context: Context) {}
+}

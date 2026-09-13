@@ -1,0 +1,175 @@
+{
+  "schemaVersion": 1,
+  "components": {
+    "core": [
+      {
+        "revision": 1,
+        "buildId": "sha256:471ef0a506d39a43e6bff54dac28c8b81aa63a243fa8879dbfdf1756f903af53"
+      },
+      {
+        "revision": 2,
+        "buildId": "sha256:26bf4a6d7716780727f76bee1b56d423c7429a1bc7cb45bff626c1dbcb1f62ce"
+      },
+      {
+        "revision": 3,
+        "buildId": "sha256:ef3b4bc1b1f69413e4ed12090aae4a638826bf7b064b7e97ae0e0b89125708dd"
+      },
+      {
+        "revision": 4,
+        "buildId": "sha256:6ca66e4e1047c7116064764cb69ab9ccd8f7ea3673d863d16903bea8a0dc71aa"
+      },
+      {
+        "revision": 5,
+        "buildId": "sha256:eeb12917cb868d0564e8fc159bfa9c05af3c88bc2a5f3117f948f14f3a155205"
+      },
+      {
+        "revision": 6,
+        "buildId": "sha256:006ab65f658958e8f11ac8b5646e86531ce8d142321dccbe92db8edbc727ae94"
+      },
+      {
+        "revision": 7,
+        "buildId": "sha256:b08b43274dd4a3086e99e37f6166cf40004885adf1b5733d5dbec245d1cbce85"
+      },
+      {
+        "revision": 8,
+        "buildId": "sha256:55eb741803fe0e91bdcc92242de8cc0541ed5ce65dffbd660c34c1f7da3faa2d"
+      },
+      {
+        "revision": 9,
+        "buildId": "sha256:201b15614a47a403838c769152081f5e888a7e32f6f11c9c5170212323614ef7"
+      },
+      {
+        "revision": 10,
+        "buildId": "sha256:e78582667a295c3c9e16d35b67d4188a5d559a61fec739048460d95af85340ae"
+      },
+      {
+        "revision": 11,
+        "buildId": "sha256:798c308d20d7f9a22aad74f6feeb5f168210fd465c6aee590b517c40e801c292"
+      },
+      {
+        "revision": 12,
+        "buildId": "sha256:cea5b085ec636630ce14ca146f7ebf0b5addbc91dfabc8fe353bafe1b3eea59e"
+      },
+      {
+        "revision": 13,
+        "buildId": "sha256:31183487e544b1c6e108c5f34ccc2c6c1f55cdbfc5766100e0ed0ba119db2997"
+      },
+      {
+        "revision": 14,
+        "buildId": "sha256:668b2cdcec325133b9252aff01a1f993f516dd4d73919e3f68d816a9277b688e"
+      },
+      {
+        "revision": 15,
+        "buildId": "sha256:8de681efdcf4333642073f693f4a604073af25d8ebfb21bc942375c567818b61"
+      },
+      {
+        "revision": 16,
+        "buildId": "sha256:f7c6be336aa68e46f09c275fb2f5cc2cf146f4dbba472b6746da57b9a89e1bbf"
+      },
+      {
+        "revision": 17,
+        "buildId": "sha256:5f0fc24d007a9e8feb1e6741d09efb77a4bd3f6da685e8a56f01480567876872"
+      },
+      {
+        "revision": 18,
+        "buildId": "sha256:4074b6e85c0cb32e3d8978fbdcfcbcba03a2c1e0b3d95bbc20177e141004a93e"
+      },
+      {
+        "revision": 19,
+        "buildId": "sha256:b37d2c98aa97998a8eb8f9b0fbf5d9bee649df21d8c992a6a550d20246fe8ed8"
+      },
+      {
+        "revision": 20,
+        "buildId": "sha256:aaef4e15753be2a38b46afeb9b965b640e82d0377f77259830edd16ef146a4ae"
+      },
+      {
+        "revision": 21,
+        "buildId": "sha256:c9ec6275aef9c71b71bab67d603ddd86800d3c79e5d14c2d23990b0564b3b009"
+      },
+      {
+        "revision": 22,
+        "buildId": "sha256:e86d0e3ed65f1dfa4997f891fb7588a5a8739d9cd01b5be634a9882cfb32754d"
+      },
+      {
+        "revision": 23,
+        "buildId": "sha256:28bc211d7df29be878affba0d224f51d731e80d821c8e928c7a4eca394b69fae"
+      },
+      {
+        "revision": 24,
+        "buildId": "sha256:14b2079b9bd8159cd6f0e352ed363cb69c42f85cf492a2845a122f8a67518dad"
+      },
+      {
+        "revision": 25,
+        "buildId": "sha256:495337ae8a75f8b8adb673a17fbc09db2b8adeeed77f10de480f6bfc8bc31aa8"
+      },
+      {
+        "revision": 26,
+        "buildId": "sha256:797870407454094ca1c9936376d36da7f5ab08272579042cb3905be11f78cf8d"
+      },
+      {
+        "revision": 27,
+        "buildId": "sha256:652a99f9f63eaa3901a874e4287cd115f5c1ada6393fc3a19c106ea685386ff7"
+      },
+      {
+        "revision": 28,
+        "buildId": "sha256:ff1bcb7b4b18e8478dba042482f3af3a8a0688853d64164403e411ace363ea58"
+      },
+      {
+        "revision": 29,
+        "buildId": "sha256:25bd090ffc832bcda78079e9577bccd837e0cad585014209dc0c8a6176f1d94c"
+      },
+      {
+        "revision": 30,
+        "buildId": "sha256:de736e6d49ae5dbf2a0d845ce54863e1700c2fdcf61dd5565ea3c4e2de37823f"
+      },
+      {
+        "revision": 31,
+        "buildId": "sha256:65330451639ea14fcb5be7fac23c1e242cfeb0cf630d5a457210001ecf54dff3"
+      },
+      {
+        "revision": 32,
+        "buildId": "sha256:98662ba11c23e6b8f13dfc65fc673a00c547fc3426799ee95c4448ed974afdb1"
+      },
+      {
+        "revision": 33,
+        "buildId": "sha256:5d1dde649a4455029699fa67ad041f4ab2f2f47883410331df397a1ff3490369"
+      },
+      {
+        "revision": 34,
+        "buildId": "sha256:38a92231c669fb3c3b62bd1fddb42e53b4183c5f88182114a0f0101b92e8cd84"
+      },
+      {
+        "revision": 35,
+        "buildId": "sha256:361f0c57fa8cad7468f14b88b71e30afbfeef35e0e097c5721d4778c083f790b"
+      },
+      {
+        "revision": 36,
+        "buildId": "sha256:e19784d3e95b07d617b10bec1c38eb54d6cc5984c395e0366351a78d96b89153"
+      }
+    ],
+    "node-hub": [
+      {
+        "revision": 1,
+        "buildId": "sha256:dbdaa0b2aa2e8d627b939d6ab76a9029aa2807839fdbe4e7918edcab592fe749"
+      },
+      {
+        "revision": 2,
+        "buildId": "sha256:8c938cc1f7f0717964c84e85f2620b88620115d8e539b362dddf20097b66fe45"
+      }
+    ],
+    "cloudflare-worker": [
+      {
+        "revision": 1,
+        "buildId": "sha256:a02f96b20ea72eb22ce4ee81f738023661742830f705c1f89fb71259ec41fd72"
+      },
+      {
+        "revision": 2,
+        "buildId": "sha256:e3452d9ea31bd30af6f9318d56cf258628897f90bc3af75291dc53631cf69509"
+      },
+      {
+        "revision": 3,
+        "buildId": "sha256:7b98c4a6209c258ceac7ecc781cf6b9c0f9e803b0b5716a533fa1dafec954ad9"
+      }
+    ]
+  }
+}

@@ -31,11 +31,9 @@ import MonitorCore
     private func nextPersistenceRevision() -> UInt64 { persistenceRevision += 1; return persistenceRevision }
     @ObservationIgnored private let writer = PersistenceWriter()
 
-    var rate: LiveRateTracker.Sample?
     var historyBusy = false
     var needsSetup = false
     var preferencesError: String?
-    private var tracker = LiveRateTracker()
     private var connectionTask: Task<Void, Never>?
     private var ticker: Task<Void, Never>?
     private var historyTask: Task<Void, Never>?
@@ -53,14 +51,14 @@ import MonitorCore
 
     init(ephemeral override: Bool? = nil, makeClient: @escaping (HubConnection) -> HubClient = { HubClient(connection: $0) }, pause: @escaping (Double) async throws -> Void = { try await Task.sleep(for: .seconds($0)) }) {
         self.makeClient = makeClient; self.pause = pause
-        ephemeral = override ?? (ProcessInfo.processInfo.arguments.contains("--smoke-test") || ProcessInfo.processInfo.arguments.contains("--preview-fixture"))
+        ephemeral = override ?? (ProcessInfo.processInfo.arguments.contains("--smoke-test") || ProcessInfo.processInfo.arguments.contains("--preview-fixture") || ProcessInfo.processInfo.arguments.contains(where: { $0.hasPrefix("--beta-") }))
         preferences.selectionChanged = { [weak self] in self?.preparePresentation() }
         if ephemeral { return }
         do { preferences = RuntimePreferences(try file.load()) }
         catch { preferencesError = error.localizedDescription; canSavePreferences = false }
         preferences.selectionChanged = { [weak self] in self?.preparePresentation() }
         if let data = try? Data(contentsOf: Identity.directory.appendingPathComponent("cache.json")),
-           let cache = try? JSONDecoder().decode(Cached.self, from: data), cache.address == preferences.hubAddress {
+           let cache = try? JSONDecoder().decode(Cached.self, from: data), (Identity.isBeta || cache.address == preferences.hubAddress) {
             stats = cache.stats; receivedAt = cache.receivedAt; history = cache.history; loadedHistoryRevision = cache.historyRevision
             status = "缓存数据 · 等待连接"
         }
@@ -235,10 +233,24 @@ import MonitorCore
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(1))
                 guard let self, !Task.isCancelled else { return }
-                self.now = Date(); self.rate = self.online ? self.tracker.sample(now: self.now) : nil
+                self.now = Date()
             }
         }
         if ephemeral { return }
+        if Identity.isBeta {
+            let backend = BetaBackend.shared
+            backend.connected = { [weak self] connection in
+                guard let self else { return }
+                self.needsSetup = false
+                if self.preferences.hubAddress != connection.baseURL.absoluteString { self.stats = nil; self.history = nil; self.loadedHistoryRevision = nil; self.historyPresentationID = UUID() }
+                self.preferences.hubAddress = connection.baseURL.absoluteString
+                self.connect(connection)
+            }
+            backend.disconnected = { [weak self] in
+                self?.stopConnection(); self?.online = false; self?.status = BetaBackend.shared.enabled ? "独立后台暂不可用 · 保留缓存" : "后台已停用 · 保留缓存"
+            }
+            status = backend.enabled ? "等待独立后台…" : "后台已停用 · 保留缓存"; backend.start(); return
+        }
         guard preferences.connected else { needsSetup = true; return }
         let address = preferences.hubAddress
         let generation = sessionID
@@ -283,7 +295,7 @@ import MonitorCore
         stopConnection()
         let id = sessionID
         let client = makeClient(connection); self.client = client
-        tracker.reset(); online = false; rate = nil; status = "正在连接…"; error = nil
+        online = false; status = "正在连接…"; error = nil
         connectionTask = Task { [weak self] in
             var delay: Double = 1
             while !Task.isCancelled {
@@ -292,7 +304,7 @@ import MonitorCore
                     let health = try await client.health()
                     let first = try await client.stats()
                     guard !Task.isCancelled, self.sessionID == id else { return }
-                    self.health = health; self.tracker.reset(); self.accept(first)
+                    self.health = health; self.accept(first)
                     let streamStarted = Date()
                     do {
                         for try await snapshot in client.stream() {
@@ -313,7 +325,7 @@ import MonitorCore
                     }
                 } catch {
                     guard !Task.isCancelled, self.sessionID == id else { return }
-                    self.online = false; self.rate = nil; self.tracker.reset()
+                    self.online = false
                     self.error = error.localizedDescription
                     if let error = error as? HubError {
                         if error == .unauthorized { self.status = "密钥需要检查"; return }
@@ -330,17 +342,24 @@ import MonitorCore
         stats = snapshot; now = Date(); receivedAt = now
         online = true; error = nil; status = "已连接 · 实时同步"
         reconcileToolSelection()
-        tracker.observe(snapshot, now: now); rate = tracker.sample(now: now)
         preparePresentation()
         if historyWanted && (history == nil || loadedHistoryRevision != snapshot.historyRevision) { loadHistory() }
-        scheduleCache()
+        applyBetaSyncStatus(); scheduleCache()
+    }
+    func applyBetaSyncStatus() {
+        guard Identity.isBeta, !ephemeral, !BetaBackend.shared.localOnly, BetaBackend.shared.snapshot?.sync?.enabled == true else { return }
+        if let stamp = BetaBackend.shared.snapshot?.sync?.lastSuccess, let date = DateCodec.parse(stamp) { receivedAt = date }
+        if BetaBackend.shared.snapshot?.sync?.error != nil { online = false; status = BetaBackend.shared.syncMessage }
+        else if BetaBackend.shared.snapshot?.sync?.lastSuccess != nil { online = true; status = "已连接 · Hub 多设备同步" }
     }
     func refresh() {
+        if Identity.isBeta && !ephemeral { Task { await BetaBackend.shared.command("refresh") }; BetaBackend.shared.reconnect(); return }
         if let client { connect(client.connection) }
         else { needsSetup = true }
     }
-    func sleep() { stopConnection(); online = false; rate = nil; status = "已暂停 · 等待唤醒" }
+    func sleep() { stopConnection(); online = false; status = "已暂停 · 等待唤醒" }
     func wake() {
+        if Identity.isBeta && !ephemeral { BetaBackend.shared.reconnect(); return }
         if let client { connect(client.connection) }
         else if preferences.connected { ticker?.cancel(); ticker = nil; start() }
     }

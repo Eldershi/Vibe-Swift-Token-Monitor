@@ -1,12 +1,11 @@
 import Foundation
 
 public enum HomeSection: String, Codable, CaseIterable, Identifiable, Sendable {
-    case usage, rate, quota, devices, models, activity, trends
+    case usage, quota, devices, models, activity, trends
     public var id: String { rawValue }
     public var title: String {
         switch self {
         case .usage: "用量"
-        case .rate: "实时速率"
         case .quota: "额度"
         case .devices: "设备"
         case .models: "模型"

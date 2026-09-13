@@ -11,19 +11,22 @@ struct ToolPicker: View {
         }.onChange(of: store.preferences.tool) { store.savePreferences() }
     }
 }
+extension AppStore {
+    var connectionDisplayStatus: String {
+        guard online else { return status }
+        let local = Identity.isBeta && (BetaBackend.shared.localOnly || BetaBackend.shared.snapshot?.sync?.enabled != true)
+        return local ? "已连接本机" : "已连接Hub"
+    }
+}
 struct ConnectionFooter: View {
     var store: AppStore
     var body: some View {
         VStack(alignment: .leading, spacing: 5) {
-            Label(store.status, systemImage: store.online ? "checkmark.circle" : "exclamationmark.circle")
+            Label(store.connectionDisplayStatus, systemImage: store.online ? "checkmark.circle" : "exclamationmark.circle")
                 .foregroundStyle(store.online ? Color.green : Color.secondary)
-            if let date = store.receivedAt {
-                Text("数据截至 \(date.formatted(date: .abbreviated, time: .standard))")
-            }
             if let error = store.error { Text(error).foregroundStyle(.secondary) }
         }.font(.caption).foregroundStyle(.secondary).textSelection(.enabled)
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel("\(store.status)。数据截至 \(store.receivedAt?.formatted(date: .abbreviated, time: .standard) ?? "尚无数据")。\(store.error ?? "")")
+            .accessibilityElement(children: .combine)
     }
 }
 struct SummaryView: View {
@@ -51,11 +54,19 @@ struct SummaryView: View {
 }
 struct SetupPrompt: View {
     var body: some View {
+        if Identity.isBeta {
+            ContentUnavailableView {
+                Label(BetaBackend.shared.enabled ? "正在准备本机数据" : "后台已停用", systemImage: "externaldrive")
+            } description: {
+                Text(BetaBackend.shared.message)
+            } actions: { SettingsLink { Text("后台设置…") } }
+        } else {
         ContentUnavailableView {
             Label("连接你的 Hub", systemImage: "network")
         } description: {
             Text("填写 Hub 地址与共享密钥，即可查看已有统计。")
         } actions: { SettingsLink { Text("设置连接…") } }
+        }
     }
 }
 struct DeviceRow: View {
@@ -85,10 +96,23 @@ struct DeviceRow: View {
             .accessibilityLabel("\(device.id)，\(expired ? "上一周期数据" : DisplayFormat.tokens(device.periods[store.preferences.period.rawValue]?.tokens(tool: store.preferences.tool)) + " tokens")，\(stale ? "上报数据已过期" : "上报有效")，最后上报 \(device.reportDate?.formatted(date: .abbreviated, time: .standard) ?? "未提供")。\(device.collectionNote(tool: store.preferences.tool) ?? "")")
     }
 }
+enum InterfaceSymbols {
+    // Official gear exported from SF Symbols 7.2; avoid OS-specific glyph substitution.
+    static var resourceBundle: Bundle {
+        if let url = Bundle.main.resourceURL?.appendingPathComponent("TokenMonitorNative_TokenMonitorNative.bundle"),
+           let bundle = Bundle(url: url) { return bundle }
+        return .module
+    }
+    static var gear: some View {
+        Image("ReferenceGear", bundle: resourceBundle)
+            .symbolRenderingMode(.monochrome)
+            .font(.system(size: 20, weight: .bold))
+    }
+}
 enum Page: String, CaseIterable, Identifiable {
-    case overview = "总览", devices = "设备", models = "模型", trends = "趋势", usage = "用量", rate = "实时速率", quota = "额度", activity = "活动"
+    case overview = "总览", devices = "设备", models = "模型", trends = "趋势", usage = "用量", quota = "额度", activity = "活动"
     var id: String { rawValue }
-    var symbol: String { switch self { case .overview: "chart.bar.xaxis"; case .devices: "desktopcomputer"; case .models: "square.stack.3d.up"; case .trends: "chart.xyaxis.line"; case .usage: "number"; case .rate: "speedometer"; case .quota: "gauge.with.dots.needle.50percent"; case .activity: "calendar" } }
+    var symbol: String { switch self { case .overview: "chart.bar.xaxis"; case .devices: "server.rack"; case .models: "square.stack.3d.up"; case .trends: "chart.xyaxis.line"; case .usage: "clock"; case .quota: "timer"; case .activity: "calendar" } }
 }
 struct CompactView: View {
     @Bindable var store: AppStore
@@ -100,63 +124,71 @@ struct CompactView: View {
                     if store.stats == nil { SetupPrompt() }
                     else {
                         if selectedPage != Page.overview.rawValue {
-                            Button { selectedPage = Page.overview.rawValue } label: { Label("总览", systemImage: "chevron.left") }.buttonStyle(.plain)
+                            HStack(spacing: 8) {
+                                Button { selectedPage = Page.overview.rawValue } label: {
+                                    Image(systemName: "chevron.left").font(.body.weight(.medium))
+                                        .frame(width: 20, height: 28)
+                                }.buttonStyle(.plain).help("返回总览").accessibilityLabel("返回总览")
+                                Text((Page(rawValue: selectedPage) ?? .overview).rawValue).font(.headline)
+                                Spacer(minLength: 8)
+                                if selectedPage == Page.models.rawValue { ModelSortPicker(store: store) }
+                            }
                         }
                         switch Page(rawValue: selectedPage) ?? .overview {
                         case .overview: OverviewView(store: store, selectedPage: $selectedPage)
                         case .devices:
-                            Text("设备 · \(store.selectedToolTitle)").font(.headline)
                             if store.devices.isEmpty { Text("尚无设备数据").foregroundStyle(.secondary) }
                             ForEach(store.devices) { DeviceRow(device: $0, store: store) }
                         case .models: ModelsView(store: store)
                         case .trends: TrendsView(store: store)
                         case .usage: UsageDetailView(store: store)
-                        case .rate: RateDetailView(store: store)
                         case .quota:
-                            QuotaView(store: store)
+                            QuotaView(store: store, showHeading: false)
                             if store.quotaProviders.isEmpty { Text("暂无可用额度数据").foregroundStyle(.secondary) }
                         case .activity: ActivityDetailView(store: store)
                         }
                     }
                     ConnectionFooter(store: store)
-                    if !store.online {
-                        HStack { Button("刷新") { store.refresh() }; Button("打开 Token Monitor") { Backend.open() } }
-                    }
-                }.padding(20).padding(.top, 52).padding(.bottom, 64)
+                }.padding(20).padding(.bottom, 64)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
                 .id(selectedPage)
             GlassEffectContainer(spacing: 10) {
-              HStack(spacing: 10) {
-                FloatingMenuButton(items: Page.allCases.map { page in
-                    FloatingMenuItem(title: page.rawValue, symbol: page.symbol) { selectedPage = page.rawValue }
-                }) {
-                    Image(systemName: (Page(rawValue: selectedPage) ?? .overview).symbol)
-                        .font(.system(size: 19, weight: .medium)).frame(width: 44, height: 44)
-                }.glassEffect(.regular.interactive(), in: .circle)
-                    .help(selectedPage).accessibilityLabel("切换页面，当前\(selectedPage)")
-                Spacer(minLength: 0)
-                FloatingMenuButton(items: [FloatingMenuItem(title: "全部工具", symbol: nil) {
-                    store.preferences.tool = ""; store.savePreferences()
-                }] + store.tools.map { tool in
-                    FloatingMenuItem(title: tool == "codex" ? "Codex" : tool == "claude" ? "Claude" : tool, symbol: nil) {
-                        store.preferences.tool = tool; store.savePreferences()
-                    }
-                }) {
-                    Image(systemName: "brain").font(.system(size: 19, weight: .medium)).frame(width: 44, height: 44)
-                }.glassEffect(.regular.interactive(), in: .circle)
-                    .help(store.selectedToolTitle).accessibilityLabel("选择工具，当前\(store.selectedToolTitle)")
-                SettingsLink { Image(systemName: "gearshape").font(.system(size: 20, weight: .medium)).frame(width: 44, height: 44) }
-                    .buttonStyle(.plain).glassEffect(.regular.interactive(), in: .circle)
-                    .help("设置").accessibilityLabel("设置")
-              }
+                HStack(spacing: 10) {
+                    HStack(spacing: 0) {
+                        FloatingMenuButton(items: Page.allCases.map { page in
+                            FloatingMenuItem(title: page.rawValue, symbol: page.symbol) { selectedPage = page.rawValue }
+                        }) {
+                            Image(systemName: (Page(rawValue: selectedPage) ?? .overview).symbol)
+                                .font(.system(size: 19, weight: .medium)).frame(width: 44, height: 44)
+                        }.help(selectedPage).accessibilityLabel("切换页面，当前\(selectedPage)")
+                        Divider().frame(height: 20).accessibilityHidden(true)
+                        FloatingMenuButton(items: [FloatingMenuItem(title: "全部工具", symbol: nil) {
+                            store.preferences.tool = ""; store.savePreferences()
+                        }] + store.tools.map { tool in
+                            FloatingMenuItem(title: tool == "codex" ? "Codex" : tool == "claude" ? "Claude" : tool, symbol: nil) {
+                                store.preferences.tool = tool; store.savePreferences()
+                            }
+                        }) {
+                            Image(systemName: "brain").font(.system(size: 19, weight: .medium)).frame(width: 44, height: 44)
+                        }.help(store.selectedToolTitle).accessibilityLabel("选择工具，当前\(store.selectedToolTitle)")
+                    }.glassEffect(.regular.interactive(), in: .capsule)
+                    Spacer(minLength: 0)
+                    Button { store.refresh() } label: {
+                        Image(systemName: "arrow.clockwise").font(.system(size: 19, weight: .medium))
+                            .frame(width: 44, height: 44)
+                    }.buttonStyle(.plain).glassEffect(.regular.interactive(), in: .circle)
+                        .help("刷新").accessibilityLabel("刷新")
+                    SettingsLink { InterfaceSymbols.gear.frame(width: 44, height: 44) }
+                        .buttonStyle(.plain).glassEffect(.regular.interactive(), in: .circle)
+                        .help("设置").accessibilityLabel("设置")
+                }
             }.padding(12)
         }.background(Color(nsColor: .windowBackgroundColor))
             .tint(store.preferences.accentColor).accentColor(store.preferences.accentColor)
-            .ignoresSafeArea(.container, edges: .top)
             .frame(minWidth: 320)
             .onChange(of: store.tools) { store.reconcileToolSelection() }
-            .task { store.reconcileToolSelection(); store.loadHistory() }
+            .task { if Page(rawValue: selectedPage) == nil { selectedPage = Page.overview.rawValue }; store.reconcileToolSelection(); store.loadHistory() }
     }
 }
 struct OverviewView: View {
@@ -185,7 +217,7 @@ struct OverviewView: View {
                     if index > 0 { SectionSeparator() }
                     VStack(alignment: .leading, spacing: 12) {
                         Button { selectedPage = section.page.rawValue } label: {
-                            HStack { Text(section.title).font(.headline); Spacer(); Image(systemName: "chevron.right").font(.caption).foregroundStyle(.secondary) }
+                            HStack { Text(section.title).font(.headline); Spacer(); Image(systemName: section.page.symbol).font(.body).foregroundStyle(.secondary).accessibilityHidden(true) }
                                 .contentShape(Rectangle())
                         }.buttonStyle(.plain).accessibilityLabel("查看\(section.title)详情")
                         sectionBody(section)
@@ -197,7 +229,6 @@ struct OverviewView: View {
     @ViewBuilder private func sectionBody(_ section: HomeSection) -> some View {
         switch section {
         case .usage: SummaryView(store: store, compact: true)
-        case .rate: RateSummaryView(store: store)
         case .quota: QuotaView(store: store, showHeading: false)
         case .devices: ForEach(store.devices) { DeviceRow(device: $0, store: store, compact: true) }
         case .models: ForEach(store.modelRows.prefix(3)) { ModelUsageRow(row: $0) }
@@ -260,13 +291,19 @@ struct ModelUsageRow: View {
             .accessibilityLabel("\(row.name)，\(DisplayFormat.tokens(row.tokens)) tokens，API 等价估算 \(DisplayFormat.cost(row.cost))")
     }
 }
+struct ModelSortPicker: View {
+    @Bindable var store: AppStore
+    var body: some View {
+        Picker("排序", selection: $store.preferences.modelSortByCost) {
+            Text("Token 用量").tag(false); Text("估算费用").tag(true)
+        }.pickerStyle(.menu).labelsHidden().fixedSize().tint(.primary).accentColor(.primary)
+            .onChange(of: store.preferences.modelSortByCost) { store.savePreferences() }
+    }
+}
 struct ModelsView: View {
     @Bindable var store: AppStore
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
-            Text("模型 · \(store.preferences.period.title)").font(.headline)
-            Picker("排序", selection: $store.preferences.modelSortByCost) { Text("Token 用量").tag(false); Text("估算费用").tag(true) }
-                .onChange(of: store.preferences.modelSortByCost) { store.savePreferences() }
             if store.modelRows.isEmpty { Text("尚无模型明细").foregroundStyle(.secondary) }
             ForEach(store.modelRows) { ModelUsageRow(row: $0) }
         }
@@ -311,7 +348,10 @@ struct ActivityView: View {
             if points.isEmpty { Text("尚无活动数据").font(.caption).foregroundStyle(.secondary) }
             else {
                 HistoryScrollView(width: CGFloat(columns * 10 + 29), height: 104,
-                                  resetKey: store.preferences.tool + store.historyPresentationID.uuidString, prepends: true, points: points, tint: store.preferences.accentColor) {
+                                  resetKey: store.preferences.tool + store.historyPresentationID.uuidString, prepends: true, points: points, tint: store.preferences.accentColor, viewportChanged: { width in
+                                      let weeks = max(16, Int(ceil((width - 29) / 10)))
+                                      if visibleWeeks != weeks { visibleWeeks = weeks }
+                                  }) {
                     Canvas { context, _ in
                         for (index, point) in points.enumerated() {
                             let rect = CGRect(x: 16 + (index / 7) * 10, y: 8 + (index % 7) * 10, width: 7, height: 7)
@@ -338,7 +378,6 @@ struct ActivityView: View {
                         .accessibilityLabel("活动热力图，缺失日期无数据")
                         .accessibilityChartDescriptor(TrendAccessibility(points: points, ceiling: max(1, maximum), monthly: false))
                 }.frame(height: 104)
-                    .onGeometryChange(for: Int.self) { max(16, Int(ceil(($0.size.width - 29) / 10))) } action: { visibleWeeks = $0 }
                     .modifier(HistoryBorder())
             }
         }
@@ -450,16 +489,13 @@ struct TrendAccessibility: AXChartDescriptorRepresentable {
 
 struct TrendsView: View {
     var store: AppStore
-    @State private var monthly = false
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
-            Text("趋势 · \(store.selectedToolTitle)").font(.headline)
-            Picker("趋势范围", selection: $monthly) { Text("按日").tag(false); Text("按月").tag(true) }.pickerStyle(.segmented).labelsHidden()
             HistoryNotice(store: store)
-            let points = store.historyPoints(monthly: monthly)
-            UsageChart(points: points, monthly: monthly, resetKey: store.preferences.tool + store.historyPresentationID.uuidString, tint: store.preferences.accentColor)
+            let points = store.historyPoints()
+            UsageChart(points: points, monthly: false, resetKey: store.preferences.tool + store.historyPresentationID.uuidString, tint: store.preferences.accentColor)
             ForEach(points.reversed()) { point in
-                HStack { Text(point.date, format: monthly ? .dateTime.year().month() : .dateTime.month().day()); Spacer(); Text(point.tokens.map { DisplayFormat.tokens($0) } ?? "无数据").monospacedDigit() }.font(.caption)
+                HStack { Text(point.date, format: .dateTime.month().day()); Spacer(); Text(point.tokens.map { DisplayFormat.tokens($0) } ?? "无数据").monospacedDigit() }.font(.caption)
             }
         }
     }

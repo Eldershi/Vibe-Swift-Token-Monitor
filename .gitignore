@@ -37,6 +37,8 @@ settings.json.*
 .npmrc
 auth.json
 credentials.json
+hub-credential.json
+.hub-credential-*
 cache.json
 cache.json.*
 *.keychain-db
@@ -55,3 +57,7 @@ health.json
 !TokenMonitorNative/Tests/MonitorCoreTests/Fixtures/stats.json
 !TokenMonitorNative/Tests/MonitorCoreTests/Fixtures/history.json
 !TokenMonitorNative/Tests/MonitorCoreTests/Fixtures/health.json
+
+# Bundled beta runtime downloads and npm installation
+node_modules/
+TokenMonitorNative/Backend/runtime/

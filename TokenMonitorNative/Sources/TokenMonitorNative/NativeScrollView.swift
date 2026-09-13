@@ -26,10 +26,12 @@ struct HistoryScrollView<Content: View>: NSViewRepresentable {
     var prepends = false
     var points: [TrendPoint]
     var tint: Color?
+    var viewportChanged: ((CGFloat) -> Void)? = nil
     @ViewBuilder var content: () -> Content
     func makeNSView(context: Context) -> HistoryNativeScroll { HistoryNativeScroll(content: AnyView(content().environment(\.self, context.environment))) }
     func updateNSView(_ view: HistoryNativeScroll, context: Context) {
-        let key = HistoryDrawingKey(points: points, tint: tint, scheme: context.environment.colorScheme,
+        view.viewportChanged = viewportChanged
+        let key = HistoryDrawingKey(size: NSSize(width: width, height: height), points: points, tint: tint, scheme: context.environment.colorScheme,
                                     differentiate: context.environment.accessibilityDifferentiateWithoutColor,
                                     locale: context.environment.locale, calendar: context.environment.calendar,
                                     scale: context.environment.displayScale)
@@ -44,6 +46,7 @@ struct HistoryScrollView<Content: View>: NSViewRepresentable {
     }
 }
 struct HistoryDrawingKey: Equatable {
+    let size: NSSize
     let points: [TrendPoint]
     let tint: Color?
     let scheme: ColorScheme
@@ -60,6 +63,8 @@ final class HistoryNativeScroll: NSScrollView {
     var prepends = false
     var position = HistoryScrollPosition()
     private var positioning = false
+    var viewportChanged: ((CGFloat) -> Void)?
+    private var notifiedWidth: CGFloat = -1
     private var lastViewport = NSSize.zero
     init(content: AnyView) {
         host = NSHostingView(rootView: content)
@@ -75,7 +80,12 @@ final class HistoryNativeScroll: NSScrollView {
     override func layout() {
         positioning = true
         super.layout()
-        host.setFrameSize(documentSize)
+        if host.frame.size != documentSize { host.setFrameSize(documentSize) }
+        if notifiedWidth != contentView.bounds.width {
+            notifiedWidth = contentView.bounds.width
+            let width = notifiedWidth
+            DispatchQueue.main.async { [weak self] in self?.viewportChanged?(width) }
+        }
         let x = position.layout(content: documentSize.width, viewport: contentView.bounds.width, prepends: prepends)
         contentView.scroll(to: NSPoint(x: x, y: 0)); reflectScrolledClipView(contentView)
         lastViewport = contentView.bounds.size
@@ -87,10 +97,28 @@ final class HistoryNativeScroll: NSScrollView {
         position.userScrolled(to: contentView.bounds.minX)
     }
     override func scrollWheel(with event: NSEvent) {
-        // Vertical trackpad/wheel gestures continue scrolling the surrounding page.
-        if !event.modifierFlags.contains(.shift), abs(event.scrollingDeltaY) > abs(event.scrollingDeltaX) {
+        let shifted = event.modifierFlags.contains(.shift)
+        if !shifted, abs(event.scrollingDeltaY) > abs(event.scrollingDeltaX) {
+            // Bypass SwiftUI's hosting responder: it can consume a forwarded event.
+            var ancestor = superview
+            while let view = ancestor {
+                if let page = view as? PageNativeScroll { page.scrollWheel(with: event); return }
+                ancestor = view.superview
+            }
             nextResponder?.scrollWheel(with: event)
-        } else { super.scrollWheel(with: event) }
+            return
+        }
+        // Hidden native scrollers disable AppKit's horizontal wheel path on some
+        // configurations. Own the offset explicitly, including momentum events.
+        let delta = shifted && event.scrollingDeltaX == 0 ? event.scrollingDeltaY : event.scrollingDeltaX
+        guard delta != 0 else { return }
+        let distance = delta * (event.hasPreciseScrollingDeltas ? 1 : 10)
+        let x = min(max(0, documentSize.width - contentView.bounds.width), max(0, contentView.bounds.minX - distance))
+        position.userScrolled(to: x)
+        positioning = true
+        contentView.scroll(to: NSPoint(x: x, y: 0))
+        reflectScrolledClipView(contentView)
+        positioning = false
     }
 }
 
@@ -146,7 +174,7 @@ final class PageNativeScroll: NSScrollView {
             .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { [weak self] height in
                 guard let self, abs(self.documentHeight - height) > 0.5 else { return }
                 self.documentHeight = height; self.needsLayout = true
-            })
+            }.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading))
         needsLayout = true
     }
     required init?(coder: NSCoder) { fatalError() }

@@ -1,6 +1,7 @@
 import SwiftUI
 import AppKit
 import MonitorCore
+import ServiceManagement
 
 @main struct TokenMonitorNativeApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
@@ -11,7 +12,7 @@ import MonitorCore
             CommandGroup(after: .newItem) {
                 Button("显示小窗口") { PanelController.shared.show() }
                 Button("刷新") { store.refresh() }.keyboardShortcut("r")
-                Button("打开 Token Monitor") { Backend.open() }
+                if !Identity.isBeta { Button("打开 Token Monitor") { Backend.open() } }
             }
         }
         MenuBarExtra {
@@ -22,11 +23,11 @@ import MonitorCore
             Button("显示小窗口") { PanelController.shared.show() }
             SettingsLink { Text("设置…") }.keyboardShortcut(",")
             Button("刷新") { store.refresh() }.keyboardShortcut("r")
-            Button("打开 Token Monitor") { Backend.open() }
+            if !Identity.isBeta { Button("打开 Token Monitor") { Backend.open() } }
             Divider()
-            Button("退出 Token Monitor Native") { NSApp.terminate(nil) }.keyboardShortcut("q")
+            Button("退出 \(Identity.name)") { NSApp.terminate(nil) }.keyboardShortcut("q")
         } label: {
-            Label(DisplayFormat.compact(store.todayTokens), systemImage: "chart.bar.xaxis")
+            Label(DisplayFormat.compact(store.todayTokens) + (Identity.isBeta ? " β" : ""), systemImage: "chart.bar.xaxis")
                 .accessibilityLabel("Token Monitor，今日 \(DisplayFormat.tokens(store.todayTokens)) tokens")
         }
     }
@@ -35,11 +36,28 @@ import MonitorCore
     private var observers: [NSObjectProtocol] = []
     func applicationDidFinishLaunching(_ notification: Notification) {
         let args = ProcessInfo.processInfo.arguments
+        if Identity.isBeta, args.contains("--beta-prepare-hub") || args.contains("--beta-enable-hub") {
+            Task { @MainActor in exit(await BetaHubProvisioning.run(enable: args.contains("--beta-enable-hub"))) }; return
+        }
+        if Identity.isBeta, args.contains("--beta-unregister") || args.contains("--beta-register") || args.contains("--beta-service-status") {
+            Task { @MainActor in
+                let service = SMAppService.agent(plistName: "local.tokenmonitor.native.beta.backend.plist")
+                do {
+                    if args.contains("--beta-unregister"), service.status != .notRegistered { try await service.unregister() }
+                    if args.contains("--beta-register"), (service.status == .notRegistered || service.status == .notFound) { try service.register() }
+                    print("Beta service status: \(service.status.rawValue)")
+                    exit(0)
+                } catch { print("Beta service operation failed: \(error)"); exit(1) }
+            }; return
+        }
         if args.contains("--verify-live") {
             Task { @MainActor in exit(await LiveVerification.run()) }; return
         }
         if args.contains("--smoke-test") {
-            print("Token Monitor Native: launch OK")
+            guard InterfaceSymbols.resourceBundle.image(forResource: "ReferenceGear") != nil else {
+                fputs("Missing compiled gear symbol resource.\n", stderr); exit(1)
+            }
+            print("Token Monitor Native: launch and gear resource OK")
             NSApp.terminate(nil); return
         }
         if let i = args.firstIndex(of: "--preview-fixture"), args.count > i + 1 {
@@ -88,8 +106,8 @@ import MonitorCore
     }
     func show() {
         if panel == nil {
-            let p = NSPanel(contentRect: NSRect(x: 0, y: 0, width: 360, height: 460), styleMask: [.titled, .closable, .resizable, .miniaturizable, .fullSizeContentView], backing: .buffered, defer: false)
-            p.title = "Token Monitor Native"
+            let p = NSPanel(contentRect: NSRect(x: 0, y: 0, width: 360, height: 460), styleMask: [.titled, .closable, .resizable, .miniaturizable], backing: .buffered, defer: false)
+            p.title = Identity.name
             p.titleVisibility = .hidden
             p.titlebarAppearsTransparent = true
             p.titlebarSeparatorStyle = .none

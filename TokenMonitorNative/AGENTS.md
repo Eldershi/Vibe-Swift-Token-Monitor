@@ -1,25 +1,14 @@
-# UI constraints
+# UI 约束
 
-- Use Apple SF Symbols for all interface icons unless the user explicitly requests an exception. No third-party icons or custom SVG icons.
-- Use system native controls. Glass belongs to floating navigation/actions; no content glass cards or nested glass.
-- Bottom navigation uses plain native buttons with NSMenu popups with one explicit system glassEffect per control inside a non-rendering GlassEffectContainer. No system glass button style underneath.
-- Bottom navigation has direct menu actions, never a nested page/tool Picker menu. Labels stay available to accessibility and tooltips.
-- Activity cells are fixed 7 pt squares (1.5 pt corners) with 3 pt gaps; the horizontal viewport stays 104 pt high, including month-only labels; horizontal scroll indicators stay hidden. Wider windows reveal more history.
-- Trend bars are fixed 5 pt capsules with approximately 7 pt date slots. Wider viewports reveal more dates, without stretching bars.
-- Keep explanatory prose out of the main statistics sections; retain genuine error, missing-data and offline states.
+- 设置/通用使用 SF Symbols 7.2 导出的原始 `ReferenceGear` 符号资源（bold 字重），不得用系统同名 `gear` 或加粗近似替代，设备 `server.rack`，用量 `clock`，额度 `timer`，后台 `externaldrive`；设置入口名称为“后台”“Hub”“关于”。首页详情入口使用对应页面图标，不用右箭头。
+- 图标统一 Apple SF Symbols；使用系统原生控件。玻璃仅用于浮动导航/操作，不用于内容卡片、不嵌套；普通按钮在 `GlassEffectContainer` 内各用一次 `glassEffect`，不再叠加玻璃按钮样式。
+- 底部左侧为页面/工具两个 44 pt 点击区域组成的液态玻璃胶囊，中间 20 pt 高分隔线；右侧刷新、设置各为 44×44 pt 圆形玻璃按钮。每组只一层玻璃，间距 10 pt，图标 19–20 pt。页面/工具直接 NSMenu 操作，页面带图标，工具纯文字；保留工具提示与无障碍标签。正文不重复放刷新/后台设置按钮。
+- 设置页标题、说明与状态文字保持系统黑灰色，主题色仅在按钮、开关及选择控件内部传递，不给整个 Form/TabView 传主题色；首页可见性与通用共用 small 控件尺寸。Hub 页不放说明性段落；首页与关于的连接状态共用同一文字。
+- 详情页标题行只显示左侧返回箭头与页面名，返回保留无障碍标签；不附加工具/周期后缀。模型排序仍在同一行右侧。
+- 最小内容宽 320 pt，高度独立，不设最大宽度。窗口负责标题栏空间；短页顶部对齐。模型标题与排序同排，排序靠右、系统中性色；趋势只展示每日数据，保留全局今天／本月／总计。
+- 热力图固定 7 pt 方块、1.5 pt 圆角、3 pt 间距，视口含月份标签高 104 pt；宽窗按实际视口向左补缺失日期。每日趋势固定 5 pt 柱、约 7 pt 日期槽位；月份横轴，圆角外框包住绘图区与右侧纵轴，保留零标注但不画零基线。拉宽只显示更多日期，不拉伸图形或增高。
+- 历史偏移归 AppKit；进入/换来源/初始数据晚到定位最新，手动浏览后布局与同步不重置。横向滑条始终隐藏但保留手势；页面右侧滑块 5 pt 浅灰、至少 14 pt 操作区，自动淡出且无常驻轨道。验证“始终显示滚动条”场景，不修改系统偏好。
+- 正文不加开发解释，保留错误、缺失和离线状态。连接/有效报告绿色，过期橙色；隐藏不可用/未报告来源，保留真实零值和断连历史缓存。批量 Canvas 绘图保留 AXChartDescriptor，不恢复大量独立布局的图形节点。
+- 首页栏目为用量、额度、设备、模型、活动、每日趋势；均有详情，显隐与顺序独立持久化于 schema 3，设备默认隐藏。右侧手柄原生拖拽排序并保留无障碍移动操作；过滤旧 `rate` 值，旧详情回总览。主题默认系统，支持 ColorPicker 任意 sRGB 持久化，不覆盖语义颜色。
 
-- All three bottom actions are single-icon circles, 44×44 pt; icons are 19–20 pt. NSMenu popups keep a 10 pt gap. Page menu rows show SF Symbols; all tool menu rows, including 全部工具, are text-only. Minimum content width is 320 pt; height remains independent. Preserve zero labels on the right y-axis but do not draw a zero baseline.
-
-- Horizontal history containers use scrollIndicators(.never); .hidden can leave legacy scrollers visible under macOS system preferences.
-
-- Connected/valid-report status is green; expired device reports are orange. Filter unavailable or unreported sources, but preserve actual zero usage and historical cache when the Hub disconnects.
-
-- History viewports use AppKit-owned offsets and explicit content widths. Reset to the latest end on entry/source changes and late initial data; do not write SwiftUI scroll-position state for each viewport-width change. Manual history browsing must not be reset by live updates.
-
-- Home sections (usage, rate, quota, devices, models, activity, trends) have persisted visibility and ordering in preferences schema 3. Upgrade keeps the previous layout, with devices initially hidden. Every section has a detail destination.
-- Theme colors support the native ColorPicker and persisted custom sRGB components, with system as the default. Explicit green/orange connection/report states must remain semantic colors.
-
-- Home ordering uses right-hand drag handles and native drag/drop; retain accessibility move actions and persist order/visibility independently.
-- Cache history projections by snapshot/tool/calendar day. Trend bars use a single Canvas path with native AXChartDescriptor support; do not reintroduce thousands of independently laid-out marks during resize.
-
-- General development notes and performance verification principles: [README.md — 开发须知](README.md#开发须知).
+共性实现与验收原则见 [README 开发须知](README.md#开发须知)；连接页脚只显示“已连接Hub”或“已连接本机”及实际错误，去掉来源/数据截至说明。这里仅维护 UI 规格，不追加版本过程记录。

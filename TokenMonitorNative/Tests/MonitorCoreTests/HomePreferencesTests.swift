@@ -14,7 +14,7 @@ final class HomePreferencesTests: XCTestCase {
         XCTAssertEqual(settings.hubAddress, "https://hub.example.invalid")
         XCTAssertTrue(settings.connected); XCTAssertTrue(settings.pinned)
         XCTAssertEqual(settings.tool, "claude"); XCTAssertEqual(settings.period, .allTime)
-        XCTAssertEqual(settings.visibleHomeSections, [.usage, .rate, .quota, .models, .activity, .trends])
+        XCTAssertEqual(settings.visibleHomeSections, [.usage, .quota, .models, .activity, .trends])
         XCTAssertEqual(settings.themeColor, .system)
         XCTAssertEqual(try Data(contentsOf: file.url.appendingPathExtension("pre-v3-backup")), original)
         XCTAssertEqual(try file.load(), settings)
@@ -25,7 +25,7 @@ final class HomePreferencesTests: XCTestCase {
         settings.moveHomeSection(.devices, by: -1)
         settings.moveHomeSection(.usage, by: -1) // first row must stay in bounds
         settings.themeColor = .purple
-        XCTAssertEqual(settings.homeSections.prefix(4), [.usage, .rate, .devices, .quota])
+        XCTAssertEqual(settings.homeSections.prefix(3), [.usage, .devices, .quota])
         let restored = try JSONDecoder().decode(Preferences.self, from: JSONEncoder().encode(settings))
         XCTAssertEqual(restored, settings); XCTAssertTrue(restored.visibleHomeSections.contains(.devices))
         settings.hiddenHomeSections = Set(HomeSection.allCases)
@@ -35,7 +35,7 @@ final class HomePreferencesTests: XCTestCase {
     func testUnknownAndDuplicateSectionsNormalizeWithoutLosingKnownChoices() throws {
         let json = Data(#"{"schemaVersion":2,"homeSections":["devices","future","devices","trends"],"hiddenHomeSections":["quota","future"],"themeColor":"future-color"}"#.utf8)
         let settings = try JSONDecoder().decode(Preferences.self, from: json)
-        XCTAssertEqual(settings.homeSections, [.devices, .trends, .usage, .rate, .quota, .models, .activity])
+        XCTAssertEqual(settings.homeSections, [.devices, .trends, .usage, .quota, .models, .activity])
         XCTAssertEqual(settings.hiddenHomeSections, [.quota])
         XCTAssertEqual(settings.themeColor, .system)
     }
@@ -48,7 +48,7 @@ final class HomePreferencesTests: XCTestCase {
         settings.customThemeColor = RGBColor(red: 0.123456, green: 0.654321, blue: 0.456789)
         settings.moveHomeSection(.usage, to: .trends)
         XCTAssertEqual(settings.homeSections.last, .usage)
-        settings.moveHomeSection(.devices, to: .rate)
+        settings.moveHomeSection(.devices, to: .quota)
         XCTAssertEqual(settings.homeSections.first, .devices)
         XCTAssertEqual(settings.hiddenHomeSections, [.devices])
         settings.moveHomeSection(.devices, to: .devices)
@@ -67,7 +67,7 @@ final class HomePreferencesTests: XCTestCase {
         XCTAssertEqual(settings.schemaVersion, 3)
         XCTAssertEqual(settings.themeColor, .teal)
         XCTAssertEqual(Array(settings.homeSections.prefix(2)), [.activity, .usage])
-        XCTAssertEqual(settings.hiddenHomeSections, [.rate])
+        XCTAssertEqual(settings.hiddenHomeSections, [])
         XCTAssertTrue(settings.connected)
         XCTAssertEqual(try Data(contentsOf: file.url.appendingPathExtension("pre-v3-backup")), original)
     }

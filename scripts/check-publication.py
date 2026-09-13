@@ -17,7 +17,8 @@ def privacy_findings(path, data):
     forbidden_dirs = {".build", "dist", ".swiftpm", ".codex", ".ssh", ".aws",
                       ".local-private", "xcuserdata", "__pycache__"}
     forbidden_names = {"settings.json", "cache.json", "credentials.json", "auth.json",
-                       ".netrc", ".npmrc", "id_rsa", "id_ed25519"}
+                       ".netrc", ".npmrc", "id_rsa", "id_ed25519", "hub-credential.json",
+                       "hub-baseline.json", "hub-sync.json", "runtime.json"}
     forbidden_suffixes = {".pem", ".key", ".p12", ".pfx", ".keychain-db", ".db",
                           ".sqlite", ".sqlite3", ".jsonl", ".har", ".log", ".trace"}
     fixture = path in {
@@ -48,7 +49,7 @@ def main():
     root = Path(git("rev-parse", "--show-toplevel").decode().strip())
     os.chdir(root)
     scanner = shutil.which("gitleaks")
-    bundled = Path(git("rev-parse", "--git-path", "tools/gitleaks").decode().strip())
+    bundled = Path(git("rev-parse", "--git-common-dir").decode().strip()) / "tools/gitleaks"
     if not scanner and bundled.is_file():
         scanner = str(bundled.resolve())
     if not scanner:

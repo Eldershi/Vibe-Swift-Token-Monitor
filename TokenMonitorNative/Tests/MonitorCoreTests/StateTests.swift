@@ -46,7 +46,7 @@ import XCTest
         XCTAssertFalse(s.online); XCTAssertNotNil(s.stats)
         try await Task.sleep(for:.milliseconds(40)); XCTAssertEqual(statsCalls,sleepingCalls)
         s.wake(); try await until { statsCalls > sleepingCalls && s.online }
-        XCTAssertNil(s.rate)
+        XCTAssertTrue(s.online)
     }
     func testBackendRestartRefetchesFullSnapshot() async throws {
         let health = try fixture("health"), stats = try fixture("stats")

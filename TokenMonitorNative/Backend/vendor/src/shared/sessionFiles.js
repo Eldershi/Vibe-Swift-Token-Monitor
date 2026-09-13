@@ -1,0 +1,67 @@
+'use strict';
+
+const fs = require('node:fs');
+const path = require('node:path');
+const { claudeSessionRoots } = require('./providers/claude/paths');
+
+function findSessionFiles(root, sessionIds) {
+  const wanted = new Set(Array.from(sessionIds).map((id) => `${id}.jsonl`));
+  const found = new Map();
+  if (wanted.size === 0) return found;
+
+  function walk(dir) {
+    if (found.size >= wanted.size) return;
+    let entries;
+    try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch (_) { return; }
+    for (const entry of entries) {
+      if (found.size >= wanted.size) return;
+      const nextPath = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        walk(nextPath);
+      } else if (entry.isFile() && wanted.has(entry.name)) {
+        found.set(entry.name.slice(0, -'.jsonl'.length), nextPath);
+      }
+    }
+  }
+
+  walk(root);
+  return found;
+}
+
+function codexHomeDir(home, options = {}) {
+  const env = options.env || process.env;
+  const configured = options.useEnvRoots !== false ? String(env.CODEX_HOME || '').trim() : '';
+  return configured ? path.resolve(configured) : path.join(home, '.codex');
+}
+
+function codexSessionFile(home, sessionId, options = {}) {
+  const match = String(sessionId || '').match(/^rollout-(\d{4})-(\d{2})-(\d{2})T/);
+  if (!match) return '';
+  const codexHome = options.codexHome || codexHomeDir(home, options);
+  const filePath = path.join(codexHome, 'sessions', match[1], match[2], match[3], `${sessionId}.jsonl`);
+  try { return fs.statSync(filePath).isFile() ? filePath : ''; } catch (_) { return ''; }
+}
+
+function resolveSessionFile(client, sessionId, home, options = {}) {
+  const id = String(sessionId || '');
+  if (!id) return '';
+  if (client === 'claude') {
+    const { projects, transcripts } = claudeSessionRoots({
+      homeDir: home,
+      env: options.env,
+      useEnvRoots: options.useEnvRoots
+    });
+    const projectFile = findSessionFiles(projects, [id]).get(id);
+    if (projectFile) return projectFile;
+    return findSessionFiles(transcripts, [id]).get(id) || '';
+  }
+  if (client === 'codex') {
+    const codexHome = options.codexHome || codexHomeDir(home, options);
+    const direct = codexSessionFile(home, id, { codexHome });
+    if (direct) return direct;
+    return findSessionFiles(path.join(codexHome, 'sessions'), [id]).get(id) || '';
+  }
+  return '';
+}
+
+module.exports = { findSessionFiles, codexSessionFile, resolveSessionFile };

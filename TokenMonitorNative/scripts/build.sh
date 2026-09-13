@@ -12,12 +12,17 @@ fi
 # The native SPM driver respects Package.swift's macOS 26 deployment target.
 swift build --build-system native --package-path "$ROOT" -c release
 BIN="$(swift build --build-system native --package-path "$ROOT" -c release --show-bin-path)"
+# The native SwiftPM driver copies asset catalogs; compile them explicitly.
+xcrun actool "$ROOT/Sources/TokenMonitorNative/Resources/Icons.xcassets" --compile "$BIN/TokenMonitorNative_TokenMonitorNative.bundle" --platform macosx --minimum-deployment-target 26.0 --target-device mac --output-format human-readable-text
+cp "$ROOT/Resources/Symbols-Info.plist" "$BIN/TokenMonitorNative_TokenMonitorNative.bundle/Info.plist"
 BUILD_STAGE="$(mktemp -d "${TMPDIR:-/tmp}/token-monitor-build.XXXXXX")"
 trap 'rm -rf "$BUILD_STAGE"' EXIT
 APP="$BUILD_STAGE/Token Monitor Native.app"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN/TokenMonitorNative" "$APP/Contents/MacOS/TokenMonitorNative"
 cp "$ROOT/Resources/Info.plist" "$APP/Contents/Info.plist"
+# SwiftPM resources include the unmodified, exported Apple symbol catalog.
+ditto "$BIN/TokenMonitorNative_TokenMonitorNative.bundle" "$APP/Contents/Resources/TokenMonitorNative_TokenMonitorNative.bundle"
 /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" "$APP/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_NUMBER" "$APP/Contents/Info.plist"
 # Local ad-hoc signature. Supply SIGNING_IDENTITY later for a stable signing certificate.
