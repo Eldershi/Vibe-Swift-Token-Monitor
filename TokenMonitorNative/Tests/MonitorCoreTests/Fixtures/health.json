@@ -1,0 +1,11 @@
+{
+  "ok": true,
+  "role": "hub",
+  "runtime": "node-hub",
+  "version": 1,
+  "hubBuild": {
+    "schemaVersion": 1,
+    "coreRevision": 3,
+    "coreBuildId": "synthetic"
+  }
+}

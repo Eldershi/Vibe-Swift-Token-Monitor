@@ -1,0 +1,29 @@
+# Build products and caches
+.build/
+.swiftpm/
+dist/
+build/
+DerivedData/
+.cache/
+__pycache__/
+*.pyc
+
+# Local editor and system state
+.DS_Store
+xcuserdata/
+*.xcuserstate
+.idea/
+.vscode/
+
+# Local configuration and credentials
+.env
+.env.*
+!.env.example
+!.env.sample
+settings.json
+settings.json.*
+*.pem
+*.key
+*.p12
+*.pfx
+*.mobileprovision

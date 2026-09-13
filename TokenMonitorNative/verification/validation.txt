@@ -1,0 +1,7 @@
+Version: 0.4.0 (20)
+38 XCTest cases passed, 0 failures.
+Final release build, codesign verification and smoke launch passed.
+Installed: ~/Applications/Token Monitor Native.app
+Existing preferences preserved (hidden-section set compared without order).
+Live launch: awaiting macOS Keychain access; real connection not yet reverified.
+Resize results: same 1095-day synthetic overview, 120 width changes, includes 16 ms pacing per sample.

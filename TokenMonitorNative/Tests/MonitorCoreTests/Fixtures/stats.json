@@ -1,0 +1,527 @@
+{
+  "updatedAt": "2026-09-13T04:00:00Z",
+  "periods": {
+    "today": {
+      "totalTokens": 125000,
+      "costUsd": 2,
+      "cacheReadTokens": 87500.0,
+      "outputTokens": 12500.0,
+      "timedTokens": 125000,
+      "timedOutputTokens": 12500.0,
+      "timedDurationMs": 10000,
+      "capabilities": {
+        "tokenComponents": true,
+        "throughput": true
+      },
+      "clients": {
+        "codex": 100000.0,
+        "claude": 25000.0
+      },
+      "clientCosts": {
+        "codex": 1.6,
+        "claude": 0.4
+      },
+      "clientCacheReads": {
+        "codex": 75000.0
+      },
+      "clientOutputs": {
+        "codex": 10000.0
+      },
+      "models": {
+        "gpt-example": 100000.0,
+        "unknown-model": 25000.0
+      },
+      "modelCosts": {
+        "gpt-example": 1.6,
+        "unknown-model": 0.4
+      },
+      "clientModels": {
+        "codex": {
+          "gpt-example": 100000.0
+        },
+        "claude": {
+          "unknown-model": 25000.0
+        }
+      },
+      "clientModelCosts": {
+        "codex": {
+          "gpt-example": 1.6
+        },
+        "claude": {
+          "unknown-model": 0.4
+        }
+      }
+    },
+    "month": {
+      "totalTokens": 1250000,
+      "costUsd": 20,
+      "cacheReadTokens": 875000.0,
+      "outputTokens": 125000.0,
+      "timedTokens": 1250000,
+      "timedOutputTokens": 125000.0,
+      "timedDurationMs": 10000,
+      "capabilities": {
+        "tokenComponents": true,
+        "throughput": true
+      },
+      "clients": {
+        "codex": 1000000.0,
+        "claude": 250000.0
+      },
+      "clientCosts": {
+        "codex": 16.0,
+        "claude": 4.0
+      },
+      "clientCacheReads": {
+        "codex": 750000.0
+      },
+      "clientOutputs": {
+        "codex": 100000.0
+      },
+      "models": {
+        "gpt-example": 1000000.0,
+        "unknown-model": 250000.0
+      },
+      "modelCosts": {
+        "gpt-example": 16.0,
+        "unknown-model": 4.0
+      },
+      "clientModels": {
+        "codex": {
+          "gpt-example": 1000000.0
+        },
+        "claude": {
+          "unknown-model": 250000.0
+        }
+      },
+      "clientModelCosts": {
+        "codex": {
+          "gpt-example": 16.0
+        },
+        "claude": {
+          "unknown-model": 4.0
+        }
+      }
+    },
+    "allTime": {
+      "totalTokens": 6250000,
+      "costUsd": 100,
+      "cacheReadTokens": 4375000.0,
+      "outputTokens": 625000.0,
+      "timedTokens": 6250000,
+      "timedOutputTokens": 625000.0,
+      "timedDurationMs": 10000,
+      "capabilities": {
+        "tokenComponents": true,
+        "throughput": true
+      },
+      "clients": {
+        "codex": 5000000.0,
+        "claude": 1250000.0
+      },
+      "clientCosts": {
+        "codex": 80.0,
+        "claude": 20.0
+      },
+      "clientCacheReads": {
+        "codex": 3750000.0
+      },
+      "clientOutputs": {
+        "codex": 500000.0
+      },
+      "models": {
+        "gpt-example": 5000000.0,
+        "unknown-model": 1250000.0
+      },
+      "modelCosts": {
+        "gpt-example": 80.0,
+        "unknown-model": 20.0
+      },
+      "clientModels": {
+        "codex": {
+          "gpt-example": 5000000.0
+        },
+        "claude": {
+          "unknown-model": 1250000.0
+        }
+      },
+      "clientModelCosts": {
+        "codex": {
+          "gpt-example": 80.0
+        },
+        "claude": {
+          "unknown-model": 20.0
+        }
+      }
+    }
+  },
+  "devices": [
+    {
+      "deviceId": "Mac-Hub",
+      "hostname": "Mac-Hub",
+      "osName": "macOS",
+      "osVersion": "26.0",
+      "agentVersion": "0.56.0",
+      "receivedAt": "2026-09-13T04:00:00Z",
+      "updatedAt": "2026-09-13T04:00:00Z",
+      "stale": false,
+      "trackedClients": [
+        "codex",
+        "claude"
+      ],
+      "syncUploadIntervalMs": 30000,
+      "periods": {
+        "today": {
+          "totalTokens": 100000,
+          "costUsd": 2,
+          "cacheReadTokens": 70000.0,
+          "outputTokens": 10000.0,
+          "timedTokens": 100000,
+          "timedOutputTokens": 10000.0,
+          "timedDurationMs": 10000,
+          "capabilities": {
+            "tokenComponents": true,
+            "throughput": true
+          },
+          "clients": {
+            "codex": 80000.0,
+            "claude": 20000.0
+          },
+          "clientCosts": {
+            "codex": 1.6,
+            "claude": 0.4
+          },
+          "clientCacheReads": {
+            "codex": 60000.0
+          },
+          "clientOutputs": {
+            "codex": 8000.0
+          },
+          "models": {
+            "gpt-example": 80000.0,
+            "unknown-model": 20000.0
+          },
+          "modelCosts": {
+            "gpt-example": 1.6,
+            "unknown-model": 0.4
+          },
+          "clientModels": {
+            "codex": {
+              "gpt-example": 80000.0
+            },
+            "claude": {
+              "unknown-model": 20000.0
+            }
+          },
+          "clientModelCosts": {
+            "codex": {
+              "gpt-example": 1.6
+            },
+            "claude": {
+              "unknown-model": 0.4
+            }
+          }
+        },
+        "month": {
+          "totalTokens": 1000000,
+          "costUsd": 20,
+          "cacheReadTokens": 700000.0,
+          "outputTokens": 100000.0,
+          "timedTokens": 1000000,
+          "timedOutputTokens": 100000.0,
+          "timedDurationMs": 10000,
+          "capabilities": {
+            "tokenComponents": true,
+            "throughput": true
+          },
+          "clients": {
+            "codex": 800000.0,
+            "claude": 200000.0
+          },
+          "clientCosts": {
+            "codex": 16.0,
+            "claude": 4.0
+          },
+          "clientCacheReads": {
+            "codex": 600000.0
+          },
+          "clientOutputs": {
+            "codex": 80000.0
+          },
+          "models": {
+            "gpt-example": 800000.0,
+            "unknown-model": 200000.0
+          },
+          "modelCosts": {
+            "gpt-example": 16.0,
+            "unknown-model": 4.0
+          },
+          "clientModels": {
+            "codex": {
+              "gpt-example": 800000.0
+            },
+            "claude": {
+              "unknown-model": 200000.0
+            }
+          },
+          "clientModelCosts": {
+            "codex": {
+              "gpt-example": 16.0
+            },
+            "claude": {
+              "unknown-model": 4.0
+            }
+          }
+        },
+        "allTime": {
+          "totalTokens": 5000000,
+          "costUsd": 100,
+          "cacheReadTokens": 3500000.0,
+          "outputTokens": 500000.0,
+          "timedTokens": 5000000,
+          "timedOutputTokens": 500000.0,
+          "timedDurationMs": 10000,
+          "capabilities": {
+            "tokenComponents": true,
+            "throughput": true
+          },
+          "clients": {
+            "codex": 4000000.0,
+            "claude": 1000000.0
+          },
+          "clientCosts": {
+            "codex": 80.0,
+            "claude": 20.0
+          },
+          "clientCacheReads": {
+            "codex": 3000000.0
+          },
+          "clientOutputs": {
+            "codex": 400000.0
+          },
+          "models": {
+            "gpt-example": 4000000.0,
+            "unknown-model": 1000000.0
+          },
+          "modelCosts": {
+            "gpt-example": 80.0,
+            "unknown-model": 20.0
+          },
+          "clientModels": {
+            "codex": {
+              "gpt-example": 4000000.0
+            },
+            "claude": {
+              "unknown-model": 1000000.0
+            }
+          },
+          "clientModelCosts": {
+            "codex": {
+              "gpt-example": 80.0
+            },
+            "claude": {
+              "unknown-model": 20.0
+            }
+          }
+        }
+      },
+      "periodWindows": {
+        "timeZone": "Asia/Shanghai",
+        "futureMetadata": 42,
+        "today": {
+          "endsAt": "2026-09-14T00:00:00Z"
+        },
+        "month": {
+          "endsAt": "2026-10-01T00:00:00Z"
+        }
+      }
+    },
+    {
+      "deviceId": "Travel-Mac",
+      "hostname": "Travel-Mac",
+      "osName": "macOS",
+      "osVersion": "26.0",
+      "agentVersion": "0.56.0",
+      "receivedAt": "2026-09-13T03:40:00Z",
+      "updatedAt": "2026-09-13T04:00:00Z",
+      "stale": true,
+      "trackedClients": [
+        "codex",
+        "claude"
+      ],
+      "syncUploadIntervalMs": 30000,
+      "periods": {
+        "today": {
+          "totalTokens": 25000,
+          "costUsd": 2,
+          "cacheReadTokens": 17500.0,
+          "outputTokens": 2500.0,
+          "timedTokens": 25000,
+          "timedOutputTokens": 2500.0,
+          "timedDurationMs": 10000,
+          "capabilities": {
+            "tokenComponents": true,
+            "throughput": true
+          },
+          "clients": {
+            "codex": 20000.0,
+            "claude": 5000.0
+          },
+          "clientCosts": {
+            "codex": 1.6,
+            "claude": 0.4
+          },
+          "clientCacheReads": {
+            "codex": 15000.0
+          },
+          "clientOutputs": {
+            "codex": 2000.0
+          },
+          "models": {
+            "gpt-example": 20000.0,
+            "unknown-model": 5000.0
+          },
+          "modelCosts": {
+            "gpt-example": 1.6,
+            "unknown-model": 0.4
+          },
+          "clientModels": {
+            "codex": {
+              "gpt-example": 20000.0
+            },
+            "claude": {
+              "unknown-model": 5000.0
+            }
+          },
+          "clientModelCosts": {
+            "codex": {
+              "gpt-example": 1.6
+            },
+            "claude": {
+              "unknown-model": 0.4
+            }
+          }
+        },
+        "month": {
+          "totalTokens": 250000,
+          "costUsd": 20,
+          "cacheReadTokens": 175000.0,
+          "outputTokens": 25000.0,
+          "timedTokens": 250000,
+          "timedOutputTokens": 25000.0,
+          "timedDurationMs": 10000,
+          "capabilities": {
+            "tokenComponents": true,
+            "throughput": true
+          },
+          "clients": {
+            "codex": 200000.0,
+            "claude": 50000.0
+          },
+          "clientCosts": {
+            "codex": 16.0,
+            "claude": 4.0
+          },
+          "clientCacheReads": {
+            "codex": 150000.0
+          },
+          "clientOutputs": {
+            "codex": 20000.0
+          },
+          "models": {
+            "gpt-example": 200000.0,
+            "unknown-model": 50000.0
+          },
+          "modelCosts": {
+            "gpt-example": 16.0,
+            "unknown-model": 4.0
+          },
+          "clientModels": {
+            "codex": {
+              "gpt-example": 200000.0
+            },
+            "claude": {
+              "unknown-model": 50000.0
+            }
+          },
+          "clientModelCosts": {
+            "codex": {
+              "gpt-example": 16.0
+            },
+            "claude": {
+              "unknown-model": 4.0
+            }
+          }
+        },
+        "allTime": {
+          "totalTokens": 1250000,
+          "costUsd": 100,
+          "cacheReadTokens": 875000.0,
+          "outputTokens": 125000.0,
+          "timedTokens": 1250000,
+          "timedOutputTokens": 125000.0,
+          "timedDurationMs": 10000,
+          "capabilities": {
+            "tokenComponents": true,
+            "throughput": true
+          },
+          "clients": {
+            "codex": 1000000.0,
+            "claude": 250000.0
+          },
+          "clientCosts": {
+            "codex": 80.0,
+            "claude": 20.0
+          },
+          "clientCacheReads": {
+            "codex": 750000.0
+          },
+          "clientOutputs": {
+            "codex": 100000.0
+          },
+          "models": {
+            "gpt-example": 1000000.0,
+            "unknown-model": 250000.0
+          },
+          "modelCosts": {
+            "gpt-example": 80.0,
+            "unknown-model": 20.0
+          },
+          "clientModels": {
+            "codex": {
+              "gpt-example": 1000000.0
+            },
+            "claude": {
+              "unknown-model": 250000.0
+            }
+          },
+          "clientModelCosts": {
+            "codex": {
+              "gpt-example": 80.0
+            },
+            "claude": {
+              "unknown-model": 20.0
+            }
+          }
+        }
+      },
+      "periodWindows": {
+        "timeZone": "Asia/Shanghai",
+        "futureMetadata": 42,
+        "today": {
+          "endsAt": "2026-09-14T00:00:00Z"
+        },
+        "month": {
+          "endsAt": "2026-10-01T00:00:00Z"
+        }
+      }
+    }
+  ],
+  "staleAfterMs": 600000,
+  "historyRevision": "synthetic-v1",
+  "deviceHistoryRevision": "synthetic-device-v1",
+  "account": {
+    "email": "must-not-be-cached@example.invalid"
+  },
+  "futureField": "ignored"
+}

@@ -1,0 +1,380 @@
+{
+  "daily": [
+    {
+      "date": "2026-09-12",
+      "tokens": 5000,
+      "cost": 0.1,
+      "perClient": {
+        "codex": {
+          "tokens": 4000.0,
+          "cost": 0.08
+        }
+      }
+    },
+    {
+      "date": "2026-09-11",
+      "tokens": 10000,
+      "cost": 0.2,
+      "perClient": {
+        "codex": {
+          "tokens": 8000.0,
+          "cost": 0.16
+        }
+      }
+    },
+    {
+      "date": "2026-09-10",
+      "tokens": 15000,
+      "cost": 0.30000000000000004,
+      "perClient": {
+        "codex": {
+          "tokens": 12000.0,
+          "cost": 0.24
+        }
+      }
+    },
+    {
+      "date": "2026-09-09",
+      "tokens": 20000,
+      "cost": 0.4,
+      "perClient": {
+        "codex": {
+          "tokens": 16000.0,
+          "cost": 0.32
+        }
+      }
+    },
+    {
+      "date": "2026-09-08",
+      "tokens": 25000,
+      "cost": 0.5,
+      "perClient": {
+        "codex": {
+          "tokens": 20000.0,
+          "cost": 0.39999999999999997
+        }
+      }
+    },
+    {
+      "date": "2026-09-06",
+      "tokens": 0,
+      "cost": 0.0,
+      "perClient": {
+        "codex": {
+          "tokens": 0.0,
+          "cost": 0.0
+        }
+      }
+    },
+    {
+      "date": "2026-09-05",
+      "tokens": 5000,
+      "cost": 0.1,
+      "perClient": {
+        "codex": {
+          "tokens": 4000.0,
+          "cost": 0.08
+        }
+      }
+    },
+    {
+      "date": "2026-09-04",
+      "tokens": 10000,
+      "cost": 0.2,
+      "perClient": {
+        "codex": {
+          "tokens": 8000.0,
+          "cost": 0.16
+        }
+      }
+    },
+    {
+      "date": "2026-09-03",
+      "tokens": 15000,
+      "cost": 0.30000000000000004,
+      "perClient": {
+        "codex": {
+          "tokens": 12000.0,
+          "cost": 0.24
+        }
+      }
+    },
+    {
+      "date": "2026-09-02",
+      "tokens": 20000,
+      "cost": 0.4,
+      "perClient": {
+        "codex": {
+          "tokens": 16000.0,
+          "cost": 0.32
+        }
+      }
+    },
+    {
+      "date": "2026-08-31",
+      "tokens": 30000,
+      "cost": 0.6000000000000001,
+      "perClient": {
+        "codex": {
+          "tokens": 24000.0,
+          "cost": 0.48
+        }
+      }
+    },
+    {
+      "date": "2026-08-30",
+      "tokens": 0,
+      "cost": 0.0,
+      "perClient": {
+        "codex": {
+          "tokens": 0.0,
+          "cost": 0.0
+        }
+      }
+    },
+    {
+      "date": "2026-08-29",
+      "tokens": 5000,
+      "cost": 0.1,
+      "perClient": {
+        "codex": {
+          "tokens": 4000.0,
+          "cost": 0.08
+        }
+      }
+    },
+    {
+      "date": "2026-08-28",
+      "tokens": 10000,
+      "cost": 0.2,
+      "perClient": {
+        "codex": {
+          "tokens": 8000.0,
+          "cost": 0.16
+        }
+      }
+    },
+    {
+      "date": "2026-08-27",
+      "tokens": 15000,
+      "cost": 0.30000000000000004,
+      "perClient": {
+        "codex": {
+          "tokens": 12000.0,
+          "cost": 0.24
+        }
+      }
+    },
+    {
+      "date": "2026-08-25",
+      "tokens": 25000,
+      "cost": 0.5,
+      "perClient": {
+        "codex": {
+          "tokens": 20000.0,
+          "cost": 0.39999999999999997
+        }
+      }
+    },
+    {
+      "date": "2026-08-24",
+      "tokens": 30000,
+      "cost": 0.6000000000000001,
+      "perClient": {
+        "codex": {
+          "tokens": 24000.0,
+          "cost": 0.48
+        }
+      }
+    },
+    {
+      "date": "2026-08-23",
+      "tokens": 0,
+      "cost": 0.0,
+      "perClient": {
+        "codex": {
+          "tokens": 0.0,
+          "cost": 0.0
+        }
+      }
+    },
+    {
+      "date": "2026-08-22",
+      "tokens": 5000,
+      "cost": 0.1,
+      "perClient": {
+        "codex": {
+          "tokens": 4000.0,
+          "cost": 0.08
+        }
+      }
+    },
+    {
+      "date": "2026-08-21",
+      "tokens": 10000,
+      "cost": 0.2,
+      "perClient": {
+        "codex": {
+          "tokens": 8000.0,
+          "cost": 0.16
+        }
+      }
+    },
+    {
+      "date": "2026-08-19",
+      "tokens": 20000,
+      "cost": 0.4,
+      "perClient": {
+        "codex": {
+          "tokens": 16000.0,
+          "cost": 0.32
+        }
+      }
+    },
+    {
+      "date": "2026-08-18",
+      "tokens": 25000,
+      "cost": 0.5,
+      "perClient": {
+        "codex": {
+          "tokens": 20000.0,
+          "cost": 0.39999999999999997
+        }
+      }
+    },
+    {
+      "date": "2026-08-17",
+      "tokens": 30000,
+      "cost": 0.6000000000000001,
+      "perClient": {
+        "codex": {
+          "tokens": 24000.0,
+          "cost": 0.48
+        }
+      }
+    },
+    {
+      "date": "2026-08-16",
+      "tokens": 0,
+      "cost": 0.0,
+      "perClient": {
+        "codex": {
+          "tokens": 0.0,
+          "cost": 0.0
+        }
+      }
+    },
+    {
+      "date": "2026-08-15",
+      "tokens": 5000,
+      "cost": 0.1,
+      "perClient": {
+        "codex": {
+          "tokens": 4000.0,
+          "cost": 0.08
+        }
+      }
+    }
+  ],
+  "monthly": [
+    {
+      "month": "2026-09",
+      "tokens": 50000,
+      "cost": 1.0,
+      "perClient": {
+        "codex": {
+          "tokens": 40000.0,
+          "cost": 0.7999999999999999
+        }
+      }
+    },
+    {
+      "month": "2026-08",
+      "tokens": 100000,
+      "cost": 2.0,
+      "perClient": {
+        "codex": {
+          "tokens": 80000.0,
+          "cost": 1.5999999999999999
+        }
+      }
+    },
+    {
+      "month": "2026-07",
+      "tokens": 150000,
+      "cost": 3.0000000000000004,
+      "perClient": {
+        "codex": {
+          "tokens": 120000.0,
+          "cost": 2.4
+        }
+      }
+    },
+    {
+      "month": "2026-06",
+      "tokens": 200000,
+      "cost": 4.0,
+      "perClient": {
+        "codex": {
+          "tokens": 160000.0,
+          "cost": 3.1999999999999997
+        }
+      }
+    },
+    {
+      "month": "2026-05",
+      "tokens": 250000,
+      "cost": 5.0,
+      "perClient": {
+        "codex": {
+          "tokens": 200000.0,
+          "cost": 4.0
+        }
+      }
+    },
+    {
+      "month": "2026-04",
+      "tokens": 300000,
+      "cost": 6.000000000000001,
+      "perClient": {
+        "codex": {
+          "tokens": 240000.0,
+          "cost": 4.8
+        }
+      }
+    },
+    {
+      "month": "2026-03",
+      "tokens": 350000,
+      "cost": 7.000000000000001,
+      "perClient": {
+        "codex": {
+          "tokens": 280000.0,
+          "cost": 5.6
+        }
+      }
+    },
+    {
+      "month": "2026-02",
+      "tokens": 400000,
+      "cost": 8.0,
+      "perClient": {
+        "codex": {
+          "tokens": 320000.0,
+          "cost": 6.3999999999999995
+        }
+      }
+    },
+    {
+      "month": "2026-01",
+      "tokens": 450000,
+      "cost": 9.0,
+      "perClient": {
+        "codex": {
+          "tokens": 360000.0,
+          "cost": 7.199999999999999
+        }
+      }
+    }
+  ]
+}

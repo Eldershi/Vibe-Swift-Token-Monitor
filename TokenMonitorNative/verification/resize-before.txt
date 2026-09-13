@@ -1,0 +1,2 @@
+RESIZE fixture: 1095 daily records, 2 usable tools
+RESIZE frame interval (includes 16 ms pacing) 120 samples, 320–1264 pt: median=39.26 ms p95=424.10 ms max=476.71 ms
