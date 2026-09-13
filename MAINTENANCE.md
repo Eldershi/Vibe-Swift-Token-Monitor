@@ -12,6 +12,8 @@
 
 ## 关键决策
 
+- 公开推送隐私检查：移除历史文档中的本机用户名路径和对话分享链接，保留应用源码与原作者信息。新增 Gitleaks + 文件/链接检查，钩子扫描待推送提交及所有祖先；本机已启用 `.githooks` 并安装 Gitleaks 8.30.1 至不被追踪的 Git 工具目录。缺少扫描器或检查失败即停止推送。
+
 - 仓库保留`TokenMonitorNative/`结构，根README提供构建入口；提交源码、合成测试样本和文档，忽略构建产物、缓存、本地设置与凭证。保留第三方声明，未新增项目许可证或Release；本轮不修改应用代码、不重建应用。
 - 通用开发经验简要收录于 [README 开发须知](TokenMonitorNative/README.md#开发须知)，涵盖采样、缓存失效、局部观察、后台保存、尺寸/滚动归属及验收；开发约束已链接该节。此轮仅更新文档，并校正过时的图表、玻璃和基准说明，未改代码或重建应用。
 
@@ -33,6 +35,8 @@
 
 ## 后续与已知验证限制
 
+- 隐私清理会改变主线提交ID。基于旧历史的本地开发分支必须将独立改动移到清理后的 `main` 上，再通过检查；不得将旧历史合并回公开仓库。历史重写不保证清除 GitHub 的旧提交缓存或他人已有副本；自动扫描也不能证明不存在所有隐私信息。
+
 - Instruments记录已得到25,251条Time Profiler样本，但多次尝试（完整签名包、预热、布局追踪）仍报告无SwiftUI数据，**更新因果图尚未完成验收**。记录与主线程样本保留 `/tmp/token-monitor-041-*`，未推断为确定系统缺陷。
 - 自动鼠标拖窗被Computer Use `windowNotFoundAtPosition`阻断；真实物理拖窗/滑块和完整VoiceOver导航仍需人工体验复核。程序化真实窗口resize及数据/偏移回归已有验证。
 - Swift native构建驱动仍有弃用提示；默认Xcode后端在同步目录曾因签名扩展属性失败。本轮沿用可用的native驱动。
@@ -40,6 +44,9 @@
 ## 已验证命令
 
 在项目根目录运行：
+
+- Gitleaks 8.30.1 对原有两次提交和清理后的 `main` 全历史扫描均未发现凭证；GitHub 密钥告警列表为空，密钥扫描与推送保护已开启。发布文件不含应用真实配置/缓存；3个JSON夹具与合成生成脚本逐字一致。
+- `python3 scripts/check-publication.py --ref main`（历史隐私及凭证检查通过）；8项隐私规则检查、正常暂存放行/伪造凭证拦截与脱敏/本地设置拦截/扫描器缺失拦截共4类隔离集成检查通过。
 
 - `git init -b main`、`git add .`、`git diff --cached --check`（首次暂存59个文件，格式检查通过）。
 - `git check-ignore TokenMonitorNative/.build/ TokenMonitorNative/dist/ .env settings.json`（均被忽略）。

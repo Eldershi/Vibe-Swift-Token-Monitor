@@ -26,3 +26,17 @@ bash scripts/install.sh
 - [第三方声明](TokenMonitorNative/THIRD_PARTY_NOTICES.md)：依赖与参考说明。
 
 构建产物、缓存、本地设置与凭证不纳入版本控制。仓库未添加项目开源许可证。
+
+## 公开推送检查
+
+安装官方 [Gitleaks](https://github.com/gitleaks/gitleaks)，并在每个本地克隆中启用检查：
+
+```sh
+git config core.hooksPath .githooks
+python3 scripts/check-publication.py --staged
+python3 scripts/check-publication.py
+```
+
+推送钩子会检查待推送提交及其全部祖先，结合 Gitleaks 排查凭证，并阻止个人目录、对话分享链接及常见本地数据文件。缺少扫描器或检查失败时停止推送；匹配内容不打印到日志。Git hooks 不随克隆自动启用，GitHub 的密钥扫描及推送保护作为额外防线。
+
+真实设置、统计导出、诊断轨迹和个人笔记请保留在仓库之外或被忽略的 `.local-private/` 中。测试夹具仅使用可复现的合成数据。自动检查不能识别所有隐私信息，提交前仍需审阅文件清单及内容。
