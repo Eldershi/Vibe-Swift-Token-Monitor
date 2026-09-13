@@ -4,7 +4,7 @@
 
 ## 当前状态
 
-- GitHub公开仓库：[Eldershi/Vibe-Swift-Token-Monitor](https://github.com/Eldershi/Vibe-Swift-Token-Monitor)，本目录为Git根目录，主分支`main`。2026-09-13已创建并核验归属及`PUBLIC`可见性。
+- GitHub公开仓库：[Eldershi/Vibe-Swift-Token-Monitor](https://github.com/Eldershi/Vibe-Swift-Token-Monitor)，本目录为Git根目录，默认分支`main`，`origin`指向该仓库并跟踪`origin/main`。2026-09-13已创建并推送首次源码提交，核验归属、`PUBLIC`可见性及远程/本地提交一致。
 - 工作源码：本目录 `TokenMonitorNative/`，Swift Package / SwiftUI / AppKit，最低macOS26；后续以此目录为准，原Documents目录未修改。
 - 已构建、签名并安装 **0.4.1（构建21）** 至 `~/Applications/Token Monitor Native.app`；产物在 `TokenMonitorNative/dist/`。
 - 旧版0.4.0（构建20）在 `~/Applications/Token Monitor Native.previous.app`；设置保留 `settings.json.pre-upgrade-backup`。Hub未停止。
@@ -45,6 +45,8 @@
 - `git check-ignore TokenMonitorNative/.build/ TokenMonitorNative/dist/ .env settings.json`（均被忽略）。
 - `gh repo create Eldershi/Vibe-Swift-Token-Monitor --public`（创建公开仓库）。
 - `gh repo view Eldershi/Vibe-Swift-Token-Monitor --json nameWithOwner,visibility,url`（归属与公开状态正确）。
+- `git push -u origin main`（首次推送成功）；`git ls-remote origin refs/heads/main`与`git rev-parse HEAD`一致，`git status --short --branch`确认工作区干净且跟踪`origin/main`。
+- `gh repo view Eldershi/Vibe-Swift-Token-Monitor --json defaultBranchRef`（默认分支`main`）；GitHub tree API确认根README、维护说明与工程目录已上传。暂存文件凭证模式检查的唯一命中为普通错误提示文字，未发现凭证，构建产物未纳入提交。
 
 在 `TokenMonitorNative/` 运行：
 
