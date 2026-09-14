@@ -1,12 +1,25 @@
 # Vibe Swift Token Monitor
 
-macOS 26+ 的原生 SwiftUI / AppKit 用量监视器。**0.5.0** 内置独立后台，读取本机 Codex、Claude Code 日志，展示 token 用量、模型、每日历史、API 等价费用和可获取的账号额度；也可连接现有 Token Monitor Hub 查看多设备汇总。
+macOS 26+ 的原生 SwiftUI / AppKit 用量监视器。
 
-无需原 Electron 应用常驻，也无需用户安装 Node.js。退出界面后，后台可继续采集。
+> **当前主要针对 Codex，仅完成基础功能验证，尚不适合普通用户直接下载安装使用。** 应用图标、菜单栏自定义等体验尚未完善；其他 AI 工具尚未作为重点跟进，现有 Claude Code 等实验适配不代表正式支持。
 
-## 下载与使用
+0.5.0 内置独立后台，验证了本机日志采集、用量与历史、API 等价费用、可获取的账号额度及现有 Hub 多设备汇总。无需原 Electron 应用常驻或另装 Node.js，退出界面后后台可继续采集。本项目非 OpenAI 官方应用。
 
-从 [Releases](https://github.com/Eldershi/Vibe-Swift-Token-Monitor/releases/latest) 下载 Apple Silicon 安装包。最低 macOS 26，实际验证使用 macOS 27；当前使用 ad-hoc 签名，**尚未公证，也没有自动更新**。Gatekeeper 可能要求用户在系统设置中确认打开。
+## 当前状态与后续计划
+
+后续按 **后台可靠性与重置采样 → Token/额度换算与不规则重置预报 → 展示完善** 推进，再完善原创图标、饼图/环形图、菜单栏自定义和 Mac Widget。iOS 仅在 Mac 版稳定后评估，不承诺启动或发布日期。
+
+上述新增能力属于计划，**尚未实现**；额度换算误差目标为满周额度的 5 个百分点以内，尚未验证达成，也不适用于重置预报。
+
+- [完整路线图](ROADMAP.md)：功能边界、来源规则、阶段与验收门槛。
+- [现有问题与技术债](docs/CURRENT_ISSUES.md)：代码检查证据、后台改进与体积分析。
+
+## 开发测试下载
+
+[Releases](https://github.com/Eldershi/Vibe-Swift-Token-Monitor/releases/latest) 中的附件目前仅供开发与测试，**暂不推荐普通用户直接使用**。保留 0.5.0 标签及原有附件，不因文案调整改变版本分类。
+
+当前 Apple Silicon 下载包 **49.08 MB**，应用约 **148.62 MB**，其中 Node 约 **120.74 MB**。最低 macOS 26，实际验证使用 macOS 27；ad-hoc 签名，**尚未公证，也没有自动更新**。Gatekeeper 可能要求在系统设置中确认打开。
 
 0.5.0 保留 `Token Monitor Native Beta.app` 的安装名称、Bundle ID 和数据目录，供已有 beta 原位升级；这是兼容性安排，不会覆盖旧的 0.4.1 客户端。
 
