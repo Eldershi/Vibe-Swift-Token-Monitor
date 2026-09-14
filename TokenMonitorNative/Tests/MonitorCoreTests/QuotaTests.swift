@@ -20,9 +20,9 @@ final class QuotaTests: XCTestCase {
     func testZeroQuotaIsNotMissingAndCurrencyIsNotPercent() throws {
         let windows = try summary().providers[0].windows
         XCTAssertEqual(windows[0].validPercent, 0)
-        XCTAssertEqual(windows[0].remainingTitle, "剩余 0%")
+        XCTAssertEqual(windows[0].remainingTitle, L10n.text("剩余 %@", "0%"))
         XCTAssertNil(windows[1].validPercent)
-        XCTAssertEqual(windows[1].remainingTitle, "剩余额度未知")
+        XCTAssertEqual(windows[1].remainingTitle, L10n.text("剩余额度未知"))
         XCTAssertFalse(windows[2].remainingTitle.contains("%"))
         XCTAssertEqual(windows[2].showMeter, false)
     }
@@ -36,7 +36,7 @@ final class QuotaTests: XCTestCase {
         XCTAssertFalse(provider.isStale(now: DateCodec.parse("2026-09-13T04:05:00Z")!, threshold: 600000))
         XCTAssertTrue(provider.isStale(now: DateCodec.parse("2026-09-13T04:11:00Z")!, threshold: 600000))
         let unknown = try JSONDecoder().decode(QuotaProvider.self, from: Data(#"{"provider":"future","status":"new-status","windows":[]}"#.utf8))
-        XCTAssertEqual(unknown.statusTitle, "状态未知")
+        XCTAssertEqual(unknown.statusTitle, L10n.text("状态未知"))
     }
     func testHeatmapCalendarAlignmentMissingZeroAndFuture() throws {
         let now = DateCodec.parse("2026-09-13T04:00:00Z")!

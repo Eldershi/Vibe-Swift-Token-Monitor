@@ -5,12 +5,12 @@ public enum HomeSection: String, Codable, CaseIterable, Identifiable, Sendable {
     public var id: String { rawValue }
     public var title: String {
         switch self {
-        case .usage: "用量"
-        case .quota: "额度"
-        case .devices: "设备"
-        case .models: "模型"
-        case .activity: "活动"
-        case .trends: "每日趋势"
+        case .usage: L10n.text("用量")
+        case .quota: L10n.text("额度")
+        case .devices: L10n.text("设备")
+        case .models: L10n.text("模型")
+        case .activity: L10n.text("活动")
+        case .trends: L10n.text("每日趋势")
         }
     }
     public static func normalizedOrder(_ names: [String]) -> [HomeSection] {
@@ -23,15 +23,15 @@ public enum ThemeColor: String, Codable, CaseIterable, Identifiable, Sendable {
     public var id: String { rawValue }
     public var title: String {
         switch self {
-        case .system: "跟随系统"
-        case .custom: "自定义"
-        case .blue: "蓝色"
-        case .purple: "紫色"
-        case .pink: "粉色"
-        case .red: "红色"
-        case .orange: "橙色"
-        case .green: "绿色"
-        case .teal: "青色"
+        case .system: L10n.text("跟随系统")
+        case .custom: L10n.text("自定义")
+        case .blue: L10n.text("蓝色")
+        case .purple: L10n.text("紫色")
+        case .pink: L10n.text("粉色")
+        case .red: L10n.text("红色")
+        case .orange: L10n.text("橙色")
+        case .green: L10n.text("绿色")
+        case .teal: L10n.text("青色")
         }
     }
 }

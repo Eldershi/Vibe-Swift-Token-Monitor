@@ -3,19 +3,25 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 export DEVELOPER_DIR="${DEVELOPER_DIR:-/Applications/Xcode-beta.app/Contents/Developer}"
 python3 "$ROOT/scripts/prepare-beta.py" --verify
-swift build --build-system native --package-path "$ROOT" -c release
-BIN="$(swift build --build-system native --package-path "$ROOT" -c release --show-bin-path)"
+python3 "$ROOT/scripts/check-localization.py"
+STAGE="$(mktemp -d "${TMPDIR:-/tmp}/token-monitor-beta-build.XXXXXX")"
+trap 'rm -rf "$STAGE"' EXIT
+# Resource accessors embed the build directory; keep it outside the source checkout.
+swift build --build-system native --package-path "$ROOT" --scratch-path "$STAGE/build" -c release
+BIN="$(swift build --build-system native --package-path "$ROOT" --scratch-path "$STAGE/build" -c release --show-bin-path)"
 # The native SwiftPM driver copies asset catalogs; compile them explicitly.
 xcrun actool "$ROOT/Sources/TokenMonitorNative/Resources/Icons.xcassets" --compile "$BIN/TokenMonitorNative_TokenMonitorNative.bundle" --platform macosx --minimum-deployment-target 26.0 --target-device mac --output-format human-readable-text
 cp "$ROOT/Resources/Symbols-Info.plist" "$BIN/TokenMonitorNative_TokenMonitorNative.bundle/Info.plist"
-STAGE="$(mktemp -d "${TMPDIR:-/tmp}/token-monitor-beta-build.XXXXXX")"
-trap 'rm -rf "$STAGE"' EXIT
 APP="$STAGE/Token Monitor Native Beta.app"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources" "$APP/Contents/Library/LaunchAgents"
 cp "$BIN/TokenMonitorNative" "$BIN/TokenMonitorBackend" "$APP/Contents/MacOS/"
+xcrun strip -S "$APP/Contents/MacOS/TokenMonitorNative" "$APP/Contents/MacOS/TokenMonitorBackend"
 python3 "$ROOT/scripts/prepare-beta.py" --stage "$APP"
 # SwiftPM resources include the unmodified, exported Apple symbol catalog.
 ditto "$BIN/TokenMonitorNative_TokenMonitorNative.bundle" "$APP/Contents/Resources/TokenMonitorNative_TokenMonitorNative.bundle"
+ditto "$BIN/TokenMonitorNative_MonitorCore.bundle" "$APP/Contents/Resources/TokenMonitorNative_MonitorCore.bundle"
+# Main-bundle metadata and localized privacy descriptions for system language selection.
+cp -R "$ROOT/Resources/en.lproj" "$ROOT/Resources/zh-Hans.lproj" "$APP/Contents/Resources/"
 xattr -cr "$APP"
 SIGNING_IDENTITY="${SIGNING_IDENTITY:--}"
 # Sign every nested Mach-O before sealing the enclosing application.
@@ -31,5 +37,5 @@ codesign --verify --deep --strict "$APP"
 mkdir -p "$ROOT/dist"
 rm -rf "$ROOT/dist/Token Monitor Native Beta.app"
 ditto --noextattr "$APP" "$ROOT/dist/Token Monitor Native Beta.app"
-ditto -c -k --keepParent --norsrc "$APP" "$ROOT/dist/Token-Monitor-Native-0.5.0-arm64.zip"
+ditto -c -k --keepParent --norsrc "$APP" "$ROOT/dist/Token-Monitor-Native-0.5.1-arm64.zip"
 printf 'Built independent Beta: %s\n' "$ROOT/dist/Token Monitor Native Beta.app"

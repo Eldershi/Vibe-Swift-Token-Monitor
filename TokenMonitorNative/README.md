@@ -4,10 +4,12 @@ macOS 26+ 的 SwiftUI / AppKit 用量统计应用。0.5 为 Codex 优先的基�
 
 ## 使用与数据
 
-- 同一小窗展示总览、设备、模型、每日趋势及栏目详情；顶部选择今天／本月／总计。模型排序持久化，历史范围独立于顶部统计周期。当前 beta 无实时速率和额外日／月切换。
+- 同一小窗展示总览、设备、模型、每日趋势及栏目详情；顶部选择今天／本月／总计。模型排序持久化，历史范围独立于顶部统计周期。当前版本无实时速率和额外日／月切换。
+- 0.5.1 设置按通用、布局、数据、关于排列；数据页合并本机后台与 Hub。支持简体中文和英语，默认跟随系统；单应用语言在系统“语言与地区”指定，应用只保留入口。
+- 0.5.1 的布局设置支持首页额度定制，默认显示实际报告的 Codex 常规额度；额外模型额度在详情及动态可选列表中展示，自定义至少保留一项。
 - 设置支持任意主题色、首页栏目显隐与右侧手柄拖拽排序。主题不覆盖连接绿色、过期橙色等语义颜色；设备栏目默认隐藏。
 - 关闭窗口后可从菜单栏重开；`⌘,` 设置、`⌘R` 刷新、`⌘W` 关窗、`⌘Q` 退出界面。Beta 后台单独管理，退出界面不停止采集。
-- 稳定版在连接设置填写 Hub 地址及共享密钥，先测试再保存；这不是 OpenAI API Key。Beta 的本机查看与共享 Hub 汇总分开，后台管理始终连接本地服务。
+- 旧 0.4.1 在连接设置填写 Hub 地址及共享密钥，先测试再保存；这不是 OpenAI API Key。Beta 的本机查看与共享 Hub 汇总分开，后台管理始终连接本地服务。
 - 费用是 API 等价估算，不是订阅账单；额度来自当前有效账号报告，不由 token 推算，不随统计周期累加。缺失、真实零值、过期与离线分别处理；断连保留最后快照，缺失历史不补零。
 
 ## 构建与维护入口
@@ -18,7 +20,7 @@ macOS 26+ 的 SwiftUI / AppKit 用量统计应用。0.5 为 Codex 优先的基�
 - 稳定通道：在对应稳定源码版本中运行 `swift test --build-system native`、`bash scripts/build.sh`、`bash scripts/install.sh`；更新须递增版本/构建号。`bash scripts/rollback.sh` 恢复上一应用和升级前设置。不要把当前 beta 分支直接打包为旧稳定版本。
 - 安装脚本保留回退副本并执行启动自检；开发时避免同时运行安装副本与 dist 副本。当前为 ad-hoc 签名，未公证、未配置在线更新；涉及原工具账号读取时应验证权限。
 
-稳定版 Bundle ID 为 `local.tokenmonitor.native`，设置位于 `~/Library/Application Support/Token Monitor Native/`；beta 独立命名空间见 BETA。稳定版共享密钥仍使用 Keychain；beta Hub 改为用户手动输入、保存在独立 0600 文件（详见 BETA），不访问旧钥匙串。密钥不得进入日志或状态响应。偏好 schema 3 迁移先备份，拒绝覆盖未来 schema；升级保留 `settings.json.pre-upgrade-backup`。
+旧 0.4.1 Bundle ID 为 `local.tokenmonitor.native`，设置位于 `~/Library/Application Support/Token Monitor Native/`；beta 独立命名空间见 BETA。稳定版共享密钥仍使用 Keychain；beta Hub 改为用户手动输入、保存在独立 0600 文件（详见 BETA），不访问旧钥匙串。密钥不得进入日志或状态响应。偏好 schema 3 迁移先备份，拒绝覆盖未来 schema；升级保留 `settings.json.pre-upgrade-backup`。
 
 缓存仅保留建模的统计字段，不保存完整账号、订阅、项目或会话响应。HTTP 不带 Cookie，不跟随重定向转发密钥；HTTPS 保留证书校验。
 
@@ -29,7 +31,9 @@ macOS 26+ 的 SwiftUI / AppKit 用量统计应用。0.5 为 Codex 优先的基�
 - `TokenMonitorBackend` 与 `Backend/`：随包辅助程序、独立采集、本地 Hub 和可选远端同步。第三方来源与许可证见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
 - `Tests/`、`Backend/tests/`：合成契约和回归；`verification/`：逐版本验收证据，按需读取。
 
-Hub 基线为 Token Monitor v0.56.0：使用 `/api/health`、`/api/stats`、`/api/stats/stream`、`/api/history`；`snapshot` / `stats` SSE 事件携带 `stats` 字段。按字段与能力判断兼容性，不能把 storage schema 当应用版本。参考[上游 API](https://github.com/Javis603/token-monitor/blob/main/docs/API.md)。具体 UI 尺寸与操作约束只维护在 [AGENTS.md](AGENTS.md)。图标须对照实际渲染；系统同名符号与参考不一致时，使用官方导出资源，不能仅靠字重近似。构建脚本显式编译符号资产并检查资源包，普通 SwiftPM native 构建只复制目录。
+Hub 基线为 Token Monitor v0.56.0：使用 `/api/health`、`/api/stats`、`/api/stats/stream`、`/api/history`；`snapshot` / `stats` SSE 事件携带 `stats` 字段。按字段与能力判断兼容性，不能把 storage schema 当应用版本。参考[上游 API](https://github.com/Javis603/token-monitor/blob/main/docs/API.md)。具体 UI 尺寸与操作约束只维护在 [AGENTS.md](AGENTS.md)。图标须对照实际渲染；系统同名符号与参考不一致时，使用官方导出资源，不能仅靠字重近似。本地化资源位于 MonitorCore，应用从随包资源读取，SwiftPM 开发构建使用模块资源。`python3 scripts/check-localization.py` 检查两种语言键与插值；beta 构建自动执行。构建脚本显式编译符号资产并检查资源包，普通 SwiftPM native 构建只复制目录。
+
+图表悬停统一由 `HeatmapHover.swift` 的原生透明浮层处理：首页与详情共用几何、命中和清除逻辑，柱形绘制及内描边共用胶囊半径。`LiveAppearanceHostingView` 直接响应原生外观变化，禁止缓存整份 SwiftUI 环境。设备条比例由 `DeviceUsageComparison` 统一计算；新偏好缺失使用默认值，保持 schema 3。
 
 ## 开发须知
 

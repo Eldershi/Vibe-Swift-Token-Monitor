@@ -30,7 +30,7 @@ final class HomePreferencesTests: XCTestCase {
         XCTAssertEqual(restored, settings); XCTAssertTrue(restored.visibleHomeSections.contains(.devices))
         settings.hiddenHomeSections = Set(HomeSection.allCases)
         let hidden = try JSONDecoder().decode(Preferences.self, from: JSONEncoder().encode(settings))
-        XCTAssertTrue(hidden.visibleHomeSections.isEmpty)
+        XCTAssertEqual(hidden.visibleHomeSections, [.usage])
     }
     func testUnknownAndDuplicateSectionsNormalizeWithoutLosingKnownChoices() throws {
         let json = Data(#"{"schemaVersion":2,"homeSections":["devices","future","devices","trends"],"hiddenHomeSections":["quota","future"],"themeColor":"future-color"}"#.utf8)
@@ -47,9 +47,9 @@ final class HomePreferencesTests: XCTestCase {
         settings.themeColor = .custom
         settings.customThemeColor = RGBColor(red: 0.123456, green: 0.654321, blue: 0.456789)
         settings.moveHomeSection(.usage, to: .trends)
-        XCTAssertEqual(settings.homeSections.last, .usage)
+        XCTAssertEqual(settings.homeSections.first, .usage)
         settings.moveHomeSection(.devices, to: .quota)
-        XCTAssertEqual(settings.homeSections.first, .devices)
+        XCTAssertEqual(settings.homeSections[1], .devices)
         XCTAssertEqual(settings.hiddenHomeSections, [.devices])
         settings.moveHomeSection(.devices, to: .devices)
         XCTAssertEqual(Set(settings.homeSections).count, HomeSection.allCases.count)

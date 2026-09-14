@@ -58,10 +58,12 @@ def stage(app):
     for file in ['main.cjs', 'hub-sync.cjs', 'hub-http.cjs', 'native-keychain.cjs', 'hub-credential.cjs', 'package.json', 'package-lock.json', 'runtime-pin.json', 'tokscale-pin.json', 'UPSTREAM.md', 'TOKSCALE-LICENSE']:
         shutil.copy2(BACKEND / file, resources / file)
     shutil.copy2(ROOT / 'THIRD_PARTY_NOTICES.md', app / 'Contents/Resources/THIRD_PARTY_NOTICES.md')
+    shutil.copy2(ROOT / 'Resources/DEVICE-ICON-CREDITS.md', app / 'Contents/Resources/DEVICE-ICON-CREDITS.md')
     with (ROOT / 'Resources/Info.plist').open('rb') as source:
         info = plistlib.load(source)
     info.update(CFBundleIdentifier='local.tokenmonitor.native.beta', CFBundleName='Token Monitor Native Beta',
-                CFBundleDisplayName='Token Monitor Native Beta', CFBundleShortVersionString='0.5.0', CFBundleVersion='30')
+                CFBundleDisplayName='Token Monitor Native Beta', CFBundleShortVersionString='0.5.1', CFBundleVersion='33',
+                TokenMonitorReleaseVersion='0.5.1')
     (app / 'Contents/Info.plist').write_bytes(plistlib.dumps(info))
     agent = {'Label': 'local.tokenmonitor.native.beta.backend',
              'BundleProgram': 'Contents/MacOS/TokenMonitorBackend',

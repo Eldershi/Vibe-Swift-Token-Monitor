@@ -11,9 +11,25 @@ import urllib.request
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--lifecycle', action='store_true')
+parser.add_argument('--app', type=Path, help='Installed versioned Beta application bundle')
 args = parser.parse_args()
 root = Path.home() / 'Library/Application Support/Token Monitor Native Beta/Backend'
-app = Path.home() / 'Applications/Token Monitor Native Beta.app'
+if args.app:
+    app = args.app
+else:
+    import plistlib
+    import re
+    applications = Path.home() / 'Applications'
+    candidates = []
+    for candidate in applications.glob('Token Monitor Native Beta*.app'):
+        if candidate.name != 'Token Monitor Native Beta.app' and not re.fullmatch(r'Token Monitor Native Beta \d+\.\d+\.\d+(?:-beta\.[1-9]\d*)? \(\d+\)\.app', candidate.name):
+            continue
+        info = plistlib.loads((candidate / 'Contents/Info.plist').read_bytes())
+        if info.get('CFBundleIdentifier') == 'local.tokenmonitor.native.beta':
+            candidates.append(candidate)
+    if len(candidates) != 1:
+        raise SystemExit('Specify --app when there is not exactly one active Beta installation.')
+    app = candidates[0]
 
 def endpoint():
     file = root / 'endpoint.json'

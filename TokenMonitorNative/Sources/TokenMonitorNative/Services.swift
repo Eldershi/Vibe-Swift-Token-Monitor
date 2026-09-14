@@ -4,6 +4,11 @@ import MonitorCore
 
 enum Identity {
     static var isBeta: Bool { Bundle.main.bundleIdentifier == "local.tokenmonitor.native.beta" }
+    static var version: String {
+        Bundle.main.object(forInfoDictionaryKey: "TokenMonitorReleaseVersion") as? String
+            ?? Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
+            ?? L10n.text("开发版本")
+    }
     static var bundleID: String { isBeta ? "local.tokenmonitor.native.beta" : "local.tokenmonitor.native" }
     static var name: String { isBeta ? "Token Monitor Native Beta" : "Token Monitor Native" }
     static var directory: URL {
@@ -46,14 +51,14 @@ enum Keychain {
     }
     struct Failure: LocalizedError {
         let status: OSStatus
-        var errorDescription: String? { "无法访问钥匙串（\(status)）。请解锁登录钥匙串后重试。" }
+        var errorDescription: String? { L10n.text("无法访问钥匙串（%@）。请解锁登录钥匙串后重试。", String(describing: status)) }
     }
 }
 
 protocol UpdateService { var description: String { get }; var canCheck: Bool { get } }
 struct LocalUpdateService: UpdateService {
     let canCheck = false
-    var description: String { "本地构建 · 尚未配置在线更新源" }
+    var description: String { L10n.text("本地构建 · 尚未配置在线更新源") }
 }
 enum Backend {
     @MainActor static func open() {

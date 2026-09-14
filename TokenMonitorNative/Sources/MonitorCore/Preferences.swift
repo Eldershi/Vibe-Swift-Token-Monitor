@@ -11,25 +11,31 @@ public struct Preferences: Codable, Equatable, Sendable {
     public var modelSortByCost = false
     public var homeSections = HomeSection.allCases
     public var hiddenHomeSections: Set<HomeSection> = [.devices]
+    public var showHomeDeviceUsageBars = false
+    public var homeQuotaSelection: Set<String>? = nil
     public var themeColor = ThemeColor.system
     public var customThemeColor = RGBColor(red: 0, green: 0.478, blue: 1)
-    public var visibleHomeSections: [HomeSection] { homeSections.filter { !hiddenHomeSections.contains($0) } }
+    public var visibleHomeSections: [HomeSection] { [.usage] + homeSections.filter { $0 != .usage && !hiddenHomeSections.contains($0) } }
     public mutating func moveHomeSection(_ section: HomeSection, by offset: Int) {
-        guard let from = homeSections.firstIndex(of: section), homeSections.indices.contains(from + offset) else { return }
+        guard section != .usage else { return }
+        homeSections = [.usage] + homeSections.filter { $0 != .usage }
+        guard let from = homeSections.firstIndex(of: section), homeSections.indices.contains(from + offset), from + offset > 0 else { return }
         homeSections.swapAt(from, from + offset)
     }
     public mutating func moveHomeSection(_ section: HomeSection, to destination: HomeSection) {
+        guard section != .usage, destination != .usage else { return }
+        homeSections = [.usage] + homeSections.filter { $0 != .usage }
         guard let from = homeSections.firstIndex(of: section),
               let to = homeSections.firstIndex(of: destination), from != to else { return }
         homeSections.remove(at: from)
         homeSections.insert(section, at: to)
     }
     public init() {}
-    enum CodingKeys: String, CodingKey { case schemaVersion, hubAddress, connected, tool, period, pinned, showPanelOnLaunch, modelSortByCost, homeSections, hiddenHomeSections, themeColor, customThemeColor }
+    enum CodingKeys: String, CodingKey { case schemaVersion, hubAddress, connected, tool, period, pinned, showPanelOnLaunch, modelSortByCost, homeSections, hiddenHomeSections, showHomeDeviceUsageBars, homeQuotaSelection, themeColor, customThemeColor }
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         let version = try c.decodeIfPresent(Int.self, forKey: .schemaVersion) ?? 0
-        guard version <= 3 else { throw HubError.incompatible("设置来自较新版本") }
+        guard version <= 3 else { throw HubError.incompatible(L10n.text("设置来自较新版本")) }
         schemaVersion = 3
         hubAddress = try c.decodeIfPresent(String.self, forKey: .hubAddress) ?? "http://127.0.0.1:17321"
         connected = try c.decodeIfPresent(Bool.self, forKey: .connected) ?? false
@@ -40,6 +46,9 @@ public struct Preferences: Codable, Equatable, Sendable {
         modelSortByCost = try c.decodeIfPresent(Bool.self, forKey: .modelSortByCost) ?? false
         homeSections = HomeSection.normalizedOrder(try c.decodeIfPresent([String].self, forKey: .homeSections) ?? [])
         hiddenHomeSections = Set((try c.decodeIfPresent([String].self, forKey: .hiddenHomeSections) ?? ["devices"]).compactMap(HomeSection.init(rawValue:)))
+        showHomeDeviceUsageBars = try c.decodeIfPresent(Bool.self, forKey: .showHomeDeviceUsageBars) ?? false
+        homeQuotaSelection = try c.decodeIfPresent(Set<String>.self, forKey: .homeQuotaSelection)
+        if homeQuotaSelection?.isEmpty == true { homeQuotaSelection = nil }
         customThemeColor = (try? c.decode(RGBColor.self, forKey: .customThemeColor)) ?? customThemeColor
         themeColor = ThemeColor(rawValue: try c.decodeIfPresent(String.self, forKey: .themeColor) ?? "system") ?? .system
     }

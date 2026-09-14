@@ -17,20 +17,23 @@ public struct QuotaProvider: Codable, Sendable {
     }
     public var statusTitle: String {
         switch status {
-        case "ok": return "已更新"
-        case "rateLimited": return "额度受限"
-        case "unauthorized": return "需要重新登录原应用"
-        case "notConfigured": return "尚未配置"
-        case "disabled": return "未启用额度查询"
-        case "sourceRateLimited": return "查询暂时受限"
-        case "unavailable", "error": return "暂时无法查询"
-        default: return "状态未知"
+        case "ok": return L10n.text("已更新")
+        case "rateLimited": return L10n.text("额度受限")
+        case "unauthorized": return L10n.text("需要重新登录原应用")
+        case "notConfigured": return L10n.text("尚未配置")
+        case "disabled": return L10n.text("未启用额度查询")
+        case "sourceRateLimited": return L10n.text("查询暂时受限")
+        case "unavailable", "error": return L10n.text("暂时无法查询")
+        default: return L10n.text("状态未知")
         }
     }
 }
 public struct QuotaWindow: Codable, Sendable {
     public let kind: String
     public let label: String?
+    public let limitId: String?
+    public let additional: Bool?
+    public let windowMinutes: Double?
     public let metric: String?
     public let remaining: Double?
     public let remainingPercent: Double?
@@ -44,17 +47,18 @@ public struct QuotaWindow: Codable, Sendable {
     }
     public var title: String {
         let period: String
-        switch kind { case "session": period = "当前时段"; case "daily": period = "每日"; case "weekly": period = "每周"; case "billing": period = "账期"; default: period = kind }
+        switch kind { case "session": period = windowMinutes == 300 ? L10n.text("5 小时") : L10n.text("当前时段"); case "daily": period = L10n.text("每日"); case "weekly": period = L10n.text("每周"); case "billing": period = L10n.text("账期"); default: period = kind }
         if let label, !label.isEmpty, label != period { return "\(label) · \(period)" }
         return period
     }
     public var remainingTitle: String {
-        if let p = validPercent { return "剩余 " + p.formatted(.number.precision(.fractionLength(0...1))) + "%" }
-        guard let remaining else { return "剩余额度未知" }
-        if let currency, !currency.isEmpty { return "剩余 " + remaining.formatted(.currency(code: currency)) }
+        if let p = validPercent { return L10n.text("剩余 %@", p.formatted(.number.precision(.fractionLength(0...1))) + "%") }
+        guard let remaining else { return L10n.text("剩余额度未知") }
+        if let currency, !currency.isEmpty { return L10n.text("剩余 %@", remaining.formatted(.currency(code: currency))) }
+        if metric == "requests" { return L10n.text("剩余请求：%@", DisplayFormat.tokens(remaining)) }
         let unit: String
-        switch metric { case "tokens": unit = " tokens"; case "requests": unit = " 次请求"; case "credits": unit = " credits"; default: unit = "" }
-        return "剩余 " + DisplayFormat.tokens(remaining) + unit
+        switch metric { case "tokens": unit = " tokens"; case "credits": unit = " credits"; default: unit = "" }
+        return L10n.text("剩余 %@", DisplayFormat.tokens(remaining) + unit)
     }
 }
 extension History {

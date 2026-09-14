@@ -8,3 +8,5 @@ SwiftUI, AppKit, Foundation, Security and Swift Charts are Apple system framewor
 Version 0.5 bundles Node.js 24.19.0 (MIT and incorporated dependency notices, included as Backend/runtime/NODE-LICENSE in the app), Tokscale 4.15.1 with the pinned downstream fork (MIT), and the production npm dependencies identified in Backend/package-lock.json. Their package license files are included in the app. Source and download pins are documented in Backend/UPSTREAM.md, runtime-pin.json and tokscale-pin.json.
 
 ReferenceGear is the unmodified gear symbol exported from Apple SF Symbols 7.2 (font version 21.1d1e1). It is included as an Apple symbol asset for this macOS app, subject to Apple’s SF Symbols license; it is not an original project icon or covered by the upstream MIT license.
+
+Device OS icons: Icons by [Icons8](https://icons8.com), iOS Filled 96 px PNG assets, subject to the [Icons8 license](https://icons8.com/license), not the upstream MIT license. Source URLs and attribution are included in `DEVICE-ICON-CREDITS.md` in the app resources and `Resources/DEVICE-ICON-CREDITS.md` in source. The About page also links to Icons8.

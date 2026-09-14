@@ -19,7 +19,7 @@ extension ThemeColor {
 extension HomeSection {
     var page: Page {
         switch self {
-        case .usage: .usage
+        case .usage: .overview
         case .quota: .quota
         case .devices: .devices
         case .models: .models
@@ -38,11 +38,11 @@ extension RuntimePreferences {
 struct ThemeColorSettings: View {
     @Bindable var store: AppStore
     var body: some View {
-        Toggle("跟随系统主题色", isOn: Binding(
+        Toggle(L10n.text("跟随系统主题色"), isOn: Binding(
             get: { store.preferences.themeColor == .system },
             set: { store.preferences.themeColor = $0 ? .system : .custom }
         ))
-        ColorPicker("自定义主题色", selection: Binding(
+        ColorPicker(L10n.text("自定义主题色"), selection: Binding(
             get: { store.preferences.accentColor ?? Color.accentColor },
             set: { color in
                 guard let rgb = NSColor(color).usingColorSpace(.sRGB) else { return }
@@ -50,7 +50,7 @@ struct ThemeColorSettings: View {
                 store.preferences.themeColor = .custom
             }
         ), supportsOpacity: false)
-        .help("打开系统颜色选择器，选择任意主题色")
+        .help(L10n.text("打开系统颜色选择器，选择任意主题色"))
     }
 }
 struct HomeLayoutSettings: View {
@@ -58,8 +58,8 @@ struct HomeLayoutSettings: View {
     @State private var dragHandles = HomeDragHandles()
     var body: some View {
         Form {
-            Section("首页栏目") {
-                ForEach(store.preferences.homeSections) { section in
+            Section(L10n.text("首页栏目")) {
+                ForEach(store.preferences.homeSections.filter { $0 != .usage }) { section in
                     HStack(spacing: 12) {
                         Toggle(section.title, isOn: Binding(
                             get: { !store.preferences.hiddenHomeSections.contains(section) },
@@ -76,24 +76,65 @@ struct HomeLayoutSettings: View {
                             store.savePreferences()
                         })
                             .frame(width: 28, height: 28)
-                            .help("拖动以调整\(section.title)的位置")
-                            .accessibilityAction(named: "上移") { store.preferences.moveHomeSection(section, by: -1); store.savePreferences() }
-                            .accessibilityAction(named: "下移") { store.preferences.moveHomeSection(section, by: 1); store.savePreferences() }
+                            .help(L10n.text("拖动以调整%@的位置", String(describing: section.title)))
+                            .accessibilityAction(named: L10n.text("上移")) { store.preferences.moveHomeSection(section, by: -1); store.savePreferences() }
+                            .accessibilityAction(named: L10n.text("下移")) { store.preferences.moveHomeSection(section, by: 1); store.savePreferences() }
                     }
                     .contentShape(Rectangle())
                 }
             }
+            Section(L10n.text("设备")) {
+                Toggle(L10n.text("首页显示设备用量条"), isOn: $store.preferences.showHomeDeviceUsageBars)
+            }
+            HomeQuotaSettings(store: store)
             Section {
-                Button("恢复默认布局") {
+                Button(L10n.text("恢复默认布局")) {
                     store.preferences.homeSections = HomeSection.allCases
                     store.preferences.hiddenHomeSections = [.devices]
+                    store.preferences.homeQuotaSelection = nil
+                    store.preferences.showHomeDeviceUsageBars = false
                 }
-                Text("用开关控制可见性，按住右侧手柄上下拖动排序。隐藏首页栏目不会删除统计数据，仍可通过页面菜单查看详情。")
+                Text(L10n.text("用开关控制可见性，按住右侧手柄上下拖动排序。隐藏首页栏目不会删除统计数据，仍可通过页面菜单查看详情。"))
                     .font(.caption).foregroundStyle(.secondary)
             }
         }.formStyle(.grouped)
     }
 }
+struct HomeQuotaSettings: View {
+    @Bindable var store: AppStore
+    var body: some View {
+        Section(L10n.text("首页额度")) {
+            Toggle(L10n.text("自定义首页额度"), isOn: Binding(
+                get: { store.preferences.homeQuotaSelection != nil },
+                set: { enabled in
+                    store.preferences.homeQuotaSelection = enabled
+                        ? QuotaSelection.effectiveIDs(selection: [], choices: store.quotaChoices) : nil
+                    store.savePreferences()
+                }
+            )).disabled(store.quotaChoices.isEmpty)
+            if store.quotaChoices.isEmpty {
+                Text(L10n.text("暂无可用额度数据")).font(.caption).foregroundStyle(.secondary)
+            } else if store.preferences.homeQuotaSelection != nil {
+                let selected = store.homeQuotaIDs
+                ForEach(store.quotaChoices) { choice in
+                    Toggle(choice.title, isOn: Binding(
+                        get: { selected.contains(choice.id) },
+                        set: { enabled in
+                            var next = store.homeQuotaIDs
+                            if enabled { next.insert(choice.id) }
+                            else if next.count > 1 { next.remove(choice.id) }
+                            store.preferences.homeQuotaSelection = next
+                            store.savePreferences()
+                        }
+                    )).disabled(selected.count == 1 && selected.contains(choice.id))
+                }
+            }
+            Text(L10n.text("默认展示 Codex 常规额度。自定义时至少选择一项；可选额度随实际报告更新，完整额度可在详情页查看。"))
+                .font(.caption).foregroundStyle(.secondary)
+        }
+    }
+}
+
 // Track the mouse in window coordinates: Form rows can be rebuilt while reordering.
 // Keeping the native mouse session avoids losing a SwiftUI drop target in that rebuild.
 @MainActor
@@ -126,10 +167,10 @@ private struct HomeDragHandle: NSViewRepresentable {
         view.finish = finish
         view.setAccessibilityElement(true)
         view.setAccessibilityRole(.button)
-        view.setAccessibilityLabel("调整\(section.title)顺序")
+        view.setAccessibilityLabel(L10n.text("调整%@顺序", String(describing: section.title)))
         view.setAccessibilityCustomActions([
-            NSAccessibilityCustomAction(name: "上移", handler: { step(-1); return true }),
-            NSAccessibilityCustomAction(name: "下移", handler: { step(1); return true })
+            NSAccessibilityCustomAction(name: L10n.text("上移"), handler: { step(-1); return true }),
+            NSAccessibilityCustomAction(name: L10n.text("下移"), handler: { step(1); return true })
         ])
     }
 }
@@ -162,19 +203,6 @@ private final class HomeDragHandleView: NSView {
         }
     }
 }
-struct UsageDetailView: View {
-    var store: AppStore
-    var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            SummaryView(store: store, compact: true)
-            SectionSeparator()
-            LabeledContent("缓存读取", value: DisplayFormat.tokens(store.usage?.cache(tool: store.preferences.tool)))
-            LabeledContent("输出 Token", value: DisplayFormat.tokens(store.usage?.output(tool: store.preferences.tool)))
-            Text("设备分项").font(.headline)
-            ForEach(store.devices) { DeviceRow(device: $0, store: store, compact: true) }
-        }.textSelection(.enabled)
-    }
-}
 struct ActivityDetailView: View {
     var store: AppStore
     var body: some View {
@@ -185,7 +213,7 @@ struct ActivityDetailView: View {
                 HStack {
                     Text(point.date, format: .dateTime.year().month().day())
                     Spacer()
-                    Text(point.tokens.map { DisplayFormat.tokens($0) + " tokens" } ?? "无数据").monospacedDigit()
+                    Text(point.tokens.map { DisplayFormat.tokens($0) + " tokens" } ?? L10n.text("无数据")).monospacedDigit()
                 }.font(.caption).textSelection(.enabled)
             }
         }

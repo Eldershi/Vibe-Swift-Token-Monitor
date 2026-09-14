@@ -10,25 +10,25 @@ import ServiceManagement
         Settings { SettingsView(store: store).frame(width: 540, height: 520) }
         .commands {
             CommandGroup(after: .newItem) {
-                Button("显示小窗口") { PanelController.shared.show() }
-                Button("刷新") { store.refresh() }.keyboardShortcut("r")
-                if !Identity.isBeta { Button("打开 Token Monitor") { Backend.open() } }
+                Button(L10n.text("显示小窗口")) { PanelController.shared.show() }
+                Button(L10n.text("刷新")) { store.refresh() }.keyboardShortcut("r")
+                if !Identity.isBeta { Button(L10n.text("打开 Token Monitor")) { Backend.open() } }
             }
         }
         MenuBarExtra {
-            Text("今日 · \(store.selectedToolTitle)")
+            Text(L10n.text("今日 · %@", String(describing: store.selectedToolTitle)))
             Text("\(DisplayFormat.tokens(store.todayTokens)) tokens")
             Text(store.status)
             Divider()
-            Button("显示小窗口") { PanelController.shared.show() }
-            SettingsLink { Text("设置…") }.keyboardShortcut(",")
-            Button("刷新") { store.refresh() }.keyboardShortcut("r")
-            if !Identity.isBeta { Button("打开 Token Monitor") { Backend.open() } }
+            Button(L10n.text("显示小窗口")) { PanelController.shared.show() }
+            SettingsLink { Text(L10n.text("设置…")) }.keyboardShortcut(",")
+            Button(L10n.text("刷新")) { store.refresh() }.keyboardShortcut("r")
+            if !Identity.isBeta { Button(L10n.text("打开 Token Monitor")) { Backend.open() } }
             Divider()
-            Button("退出 \(Identity.name)") { NSApp.terminate(nil) }.keyboardShortcut("q")
+            Button(L10n.text("退出 %@", String(describing: Identity.name))) { NSApp.terminate(nil) }.keyboardShortcut("q")
         } label: {
             Label(DisplayFormat.compact(store.todayTokens) + (Identity.isBeta ? " β" : ""), systemImage: "chart.bar.xaxis")
-                .accessibilityLabel("Token Monitor，今日 \(DisplayFormat.tokens(store.todayTokens)) tokens")
+                .accessibilityLabel(L10n.text("Token Monitor，今日 %@ tokens", String(describing: DisplayFormat.tokens(store.todayTokens))))
         }
     }
 }
@@ -36,6 +36,20 @@ import ServiceManagement
     private var observers: [NSObjectProtocol] = []
     func applicationDidFinishLaunching(_ notification: Notification) {
         let args = ProcessInfo.processInfo.arguments
+        if let index = args.firstIndex(of: "--verify-localization"), args.count > index + 1 {
+            let expected = args[index + 1]
+            let labels = [L10n.text("通用"), L10n.text("布局"), L10n.text("数据"), L10n.text("关于")]
+            let baseline = expected == "zh-Hans" ? ["通用", "布局", "数据", "关于"] : ["General", "Layout", "Data", "About"]
+            let dynamic = L10n.text("连接成功：已读取 %@ 台设备。点击“保存连接”开始同步。", "2")
+            let expectedDynamic = expected == "zh-Hans"
+                ? "连接成功：已读取 2 台设备。点击“保存连接”开始同步。"
+                : "Connection successful. Devices read: 2. Click “Save connection” to start syncing."
+            guard labels == baseline, dynamic == expectedDynamic else {
+                fputs("Localization verification failed.\n", stderr); exit(1)
+            }
+            print("Localization verified: \(expected); \(labels.joined(separator: ", ")); \(dynamic)")
+            exit(0)
+        }
         if Identity.isBeta, args.contains("--beta-prepare-hub") || args.contains("--beta-enable-hub") {
             Task { @MainActor in exit(await BetaHubProvisioning.run(enable: args.contains("--beta-enable-hub"))) }; return
         }
@@ -57,10 +71,16 @@ import ServiceManagement
             guard InterfaceSymbols.resourceBundle.image(forResource: "ReferenceGear") != nil else {
                 fputs("Missing compiled gear symbol resource.\n", stderr); exit(1)
             }
-            print("Token Monitor Native: launch and gear resource OK")
+            guard ["DeviceMac", "DeviceWindows", "DeviceLinux"].allSatisfy({ InterfaceSymbols.resourceBundle.image(forResource: $0) != nil }),
+                  NSImage(systemSymbolName: "binoculars.fill", accessibilityDescription: nil) != nil,
+                  NSImage(systemSymbolName: "macbook", accessibilityDescription: nil) != nil else {
+                fputs("Missing device or overview icon resource.\n", stderr); exit(1)
+            }
+            print("Token Monitor Native: launch, gear and device icon resources OK")
             NSApp.terminate(nil); return
         }
         if let i = args.firstIndex(of: "--preview-fixture"), args.count > i + 1 {
+            if args.contains("--preview-dark") { NSApp.appearance = NSAppearance(named: .darkAqua) }
             let url = URL(fileURLWithPath: args[i + 1])
             try? AppStore.shared.preview(statsURL: url, historyURL: url.deletingLastPathComponent().appendingPathComponent("history.json"))
         }
@@ -72,6 +92,10 @@ import ServiceManagement
         if args.contains("--preview-fixture"), args.contains("--preview-wide") {
             PanelController.shared.show()
             PanelController.shared.verificationWindow.setContentSize(NSSize(width: 1000, height: 900))
+        }
+        if args.contains("--preview-fixture"), args.contains("--preview-narrow") {
+            PanelController.shared.show()
+            PanelController.shared.verificationWindow.setContentSize(NSSize(width: 320, height: 500))
         }
         let center = NSWorkspace.shared.notificationCenter
         observers.append(center.addObserver(forName: NSWorkspace.willSleepNotification, object: nil, queue: .main) { _ in Task { @MainActor in AppStore.shared.sleep() } })
@@ -106,7 +130,7 @@ import ServiceManagement
     }
     func show() {
         if panel == nil {
-            let p = NSPanel(contentRect: NSRect(x: 0, y: 0, width: 360, height: 460), styleMask: [.titled, .closable, .resizable, .miniaturizable], backing: .buffered, defer: false)
+            let p = CompactPanel(contentRect: NSRect(x: 0, y: 0, width: 360, height: 460), styleMask: [.titled, .closable, .resizable, .miniaturizable, .fullSizeContentView], backing: .buffered, defer: false)
             p.title = Identity.name
             p.titleVisibility = .hidden
             p.titlebarAppearsTransparent = true
@@ -123,10 +147,9 @@ import ServiceManagement
             let host = NSHostingView(rootView: CompactView(store: AppStore.shared))
             host.sizingOptions = []
             p.contentView = host
-            // The reference screenshot is Retina: its ~640 px window corresponds to 320 pt.
-            // Apply after hosting-view installation so AppKit does not replace this constraint.
-            p.contentMinSize = NSSize(width: 320, height: 400)
-            p.center(); if !ProcessInfo.processInfo.arguments.contains("--benchmark-resize") { p.setFrameAutosaveName("NativeCompactWindow") }
+            p.installSizeConstraints()
+            p.center(); if !ProcessInfo.processInfo.arguments.contains("--benchmark-resize"), !ProcessInfo.processInfo.arguments.contains("--preview-fixture") { p.setFrameAutosaveName("NativeCompactWindow") }
+            p.installSizeConstraints() // Recheck after restoring an older saved frame.
             panel = p
         }
         if panel?.isVisible != true { AppStore.shared.historyPresentationID = UUID() }
@@ -140,7 +163,7 @@ import ServiceManagement
         let item = NSToolbarItemGroup(itemIdentifier: id, titles: Period.allCases.map(\.title), selectionMode: .selectOne, labels: nil, target: self, action: #selector(selectPeriod(_:)))
         item.controlRepresentation = .expanded
         item.selectedIndex = Period.allCases.firstIndex(of: AppStore.shared.preferences.period) ?? 1
-        item.label = ""; item.toolTip = "时间范围"
+        item.label = ""; item.toolTip = L10n.text("时间范围")
         return item
     }
     @objc private func selectPeriod(_ sender: NSToolbarItemGroup) {

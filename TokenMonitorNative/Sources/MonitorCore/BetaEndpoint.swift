@@ -11,7 +11,7 @@ public struct BetaEndpoint: Codable, Equatable, Sendable {
               let url = URLComponents(string: address), url.scheme == "http", url.host == "127.0.0.1",
               let port = url.port, (1...65535).contains(port), url.path.isEmpty,
               secret.count == 64, secret.allSatisfy({ $0.isHexDigit && $0.isASCII }) else {
-            throw HubError.incompatible("本机后台连接信息")
+            throw HubError.incompatible(L10n.text("本机后台连接信息"))
         }
         return try HubConnection(address: address, secret: secret)
     }

@@ -25,6 +25,8 @@ cp "$ROOT/Resources/Info.plist" "$APP/Contents/Info.plist"
 ditto "$BIN/TokenMonitorNative_TokenMonitorNative.bundle" "$APP/Contents/Resources/TokenMonitorNative_TokenMonitorNative.bundle"
 /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" "$APP/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_NUMBER" "$APP/Contents/Info.plist"
+ditto "$BIN/TokenMonitorNative_MonitorCore.bundle" "$APP/Contents/Resources/TokenMonitorNative_MonitorCore.bundle"
+cp -R "$ROOT/Resources/en.lproj" "$ROOT/Resources/zh-Hans.lproj" "$APP/Contents/Resources/"
 # Local ad-hoc signature. Supply SIGNING_IDENTITY later for a stable signing certificate.
 xattr -cr "$APP"
 codesign --force --sign "${SIGNING_IDENTITY:--}" --identifier local.tokenmonitor.native "$APP"

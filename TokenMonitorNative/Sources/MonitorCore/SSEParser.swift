@@ -14,14 +14,14 @@ public struct SSEParser: Sendable {
         for byte in data {
             if afterCR { afterCR = false; if byte == 10 { continue } }
             if byte == 10 || byte == 13 {
-                guard var line = String(data: bytes, encoding: .utf8) else { throw HubError.incompatible("串流 UTF-8") }
+                guard var line = String(data: bytes, encoding: .utf8) else { throw HubError.incompatible(L10n.text("串流 UTF-8")) }
                 if firstLine { if line.hasPrefix("\u{FEFF}") { line.removeFirst() }; firstLine = false }
                 bytes.removeAll(keepingCapacity: true)
                 if let event = consume(line) { result.append(event) }
                 afterCR = byte == 13
             } else {
                 bytes.append(byte)
-                guard bytes.count + size < 16 * 1024 * 1024 else { throw HubError.incompatible("串流事件过大") }
+                guard bytes.count + size < 16 * 1024 * 1024 else { throw HubError.incompatible(L10n.text("串流事件过大")) }
             }
         }
         return result
@@ -48,9 +48,9 @@ public struct SSEEvent: Sendable {
         guard name == "stats" || name == "snapshot" else { return nil }
         do {
             guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-                  let stats = json["stats"] as? [String: Any] else { throw HubError.incompatible("串流事件") }
+                  let stats = json["stats"] as? [String: Any] else { throw HubError.incompatible(L10n.text("串流事件")) }
             return try Stats.decode(JSONSerialization.data(withJSONObject: stats))
         } catch let error as HubError { throw error }
-        catch { throw HubError.incompatible("串流事件 JSON") }
+        catch { throw HubError.incompatible(L10n.text("串流事件 JSON")) }
     }
 }

@@ -7,7 +7,7 @@ import MonitorCore
     var stats: Stats? { didSet { snapshotRevision += 1; refreshTemporalBoundary() } }
     var history: History? { didSet { historyPointsCache.removeAll(); expandedActivityCache.removeAll() } }
     var health: Health?
-    var status = "尚未连接"
+    var status = L10n.text("尚未连接")
     var error: String?
     var historyError: String?
     var online = false
@@ -51,7 +51,7 @@ import MonitorCore
 
     init(ephemeral override: Bool? = nil, makeClient: @escaping (HubConnection) -> HubClient = { HubClient(connection: $0) }, pause: @escaping (Double) async throws -> Void = { try await Task.sleep(for: .seconds($0)) }) {
         self.makeClient = makeClient; self.pause = pause
-        ephemeral = override ?? (ProcessInfo.processInfo.arguments.contains("--smoke-test") || ProcessInfo.processInfo.arguments.contains("--preview-fixture") || ProcessInfo.processInfo.arguments.contains(where: { $0.hasPrefix("--beta-") }))
+        ephemeral = override ?? (ProcessInfo.processInfo.arguments.contains("--smoke-test") || ProcessInfo.processInfo.arguments.contains("--verify-localization") || ProcessInfo.processInfo.arguments.contains("--preview-fixture") || ProcessInfo.processInfo.arguments.contains(where: { $0.hasPrefix("--beta-") }))
         preferences.selectionChanged = { [weak self] in self?.preparePresentation() }
         if ephemeral { return }
         do { preferences = RuntimePreferences(try file.load()) }
@@ -60,7 +60,7 @@ import MonitorCore
         if let data = try? Data(contentsOf: Identity.directory.appendingPathComponent("cache.json")),
            let cache = try? JSONDecoder().decode(Cached.self, from: data), (Identity.isBeta || cache.address == preferences.hubAddress) {
             stats = cache.stats; receivedAt = cache.receivedAt; history = cache.history; loadedHistoryRevision = cache.historyRevision
-            status = "缓存数据 · 等待连接"
+            status = L10n.text("缓存数据 · 等待连接")
         }
     }
     private struct HistoryPointsKey: Hashable {
@@ -136,17 +136,25 @@ import MonitorCore
         }
         nextStatusBoundary = boundaries.filter { $0 > now }.min() ?? now.addingTimeInterval(60)
     }
-    var quotaProviders: [QuotaProvider] {
-        var key = presentationKey; key.tool = preferences.tool
+    var availableQuotaProviders: [QuotaProvider] {
+        let key = presentationKey
         if let cached = quotaCache, cached.0 == key { return cached.1 }
-        let available = Set(tools)
         let value = (stats?.limits?.providers ?? []).filter {
-            available.contains($0.provider) && (key.tool.isEmpty || $0.provider == key.tool)
-                && !$0.windows.isEmpty && ["ok", "rateLimited"].contains($0.status)
+            $0.windows.contains(where: \.hasReportedQuota) && ["ok", "rateLimited"].contains($0.status)
                 && !$0.isStale(now: key.date, threshold: stats?.staleAfterMs ?? 600_000)
         }
         quotaCache = (key, value); presentationComputations += 1
         return value
+    }
+    var quotaProviders: [QuotaProvider] {
+        availableQuotaProviders
+    }
+    var quotaChoices: [QuotaChoice] { QuotaSelection.choices(in: availableQuotaProviders) }
+    var homeQuotaIDs: Set<String> {
+        QuotaSelection.effectiveIDs(selection: preferences.homeQuotaSelection, choices: quotaChoices)
+    }
+    var homeQuotaProviders: [QuotaProvider] {
+        QuotaSelection.filtered(availableQuotaProviders, ids: homeQuotaIDs)
     }
     var usage: Usage? { stats?.periods[preferences.period.rawValue] }
     var tools: [String] {
@@ -165,7 +173,7 @@ import MonitorCore
         preferences.tool = tools.contains("codex") ? "codex" : tools.first ?? ""
         savePreferences()
     }
-    var selectedToolTitle: String { preferences.tool.isEmpty ? "全部工具" : preferences.tool == "codex" ? "Codex" : preferences.tool }
+    var selectedToolTitle: String { preferences.tool.isEmpty ? L10n.text("全部工具") : preferences.tool == "codex" ? "Codex" : preferences.tool }
     var selectedTokens: Double? { usage?.tokens(tool: preferences.tool) }
     var selectedCost: Double? { usage?.cost(tool: preferences.tool) }
     var todayTokens: Double? { stats?.periods["today"]?.tokens(tool: preferences.tool) }
@@ -175,6 +183,9 @@ import MonitorCore
         let value = (stats?.devices ?? []).filter { key.tool.isEmpty || $0.trackedClients?.contains(key.tool) == true || $0.periods["allTime"]?.clients?[key.tool] != nil }.sorted { $0.id.localizedStandardCompare($1.id) == .orderedAscending }
         devicesCache = (key, value); presentationComputations += 1
         return value
+    }
+    var deviceUsageFractions: [String: Double] {
+        DeviceUsageComparison.fractions(devices: devices, tool: preferences.tool, period: preferences.period, now: statusClock)
     }
     var modelRows: [ModelRow] {
         var key = presentationKey; key.tool = preferences.tool; key.period = preferences.period; key.cost = preferences.modelSortByCost
@@ -247,19 +258,19 @@ import MonitorCore
                 self.connect(connection)
             }
             backend.disconnected = { [weak self] in
-                self?.stopConnection(); self?.online = false; self?.status = BetaBackend.shared.enabled ? "独立后台暂不可用 · 保留缓存" : "后台已停用 · 保留缓存"
+                self?.stopConnection(); self?.online = false; self?.status = BetaBackend.shared.enabled ? L10n.text("独立后台暂不可用 · 保留缓存") : L10n.text("后台已停用 · 保留缓存")
             }
-            status = backend.enabled ? "等待独立后台…" : "后台已停用 · 保留缓存"; backend.start(); return
+            status = backend.enabled ? L10n.text("等待独立后台…") : L10n.text("后台已停用 · 保留缓存"); backend.start(); return
         }
         guard preferences.connected else { needsSetup = true; return }
         let address = preferences.hubAddress
         let generation = sessionID
-        status = "正在读取已保存的连接…"
+        status = L10n.text("正在读取已保存的连接…")
         credentialTask = Task { [weak self] in
             do {
                 let secret = try await Task.detached(priority: .userInitiated) { try Keychain.load(address: address) }.value
                 guard let self, !Task.isCancelled, self.sessionID == generation, self.preferences.hubAddress == address else { return }
-                guard let secret else { self.needsSetup = true; self.status = "请重新填写共享密钥"; return }
+                guard let secret else { self.needsSetup = true; self.status = L10n.text("请重新填写共享密钥"); return }
                 self.connect(try HubConnection(address: address, secret: secret))
             } catch { self?.error = error.localizedDescription; self?.needsSetup = true }
         }
@@ -273,7 +284,7 @@ import MonitorCore
         return (connection, health, stats)
     }
     func saveConnection(_ result: (HubConnection, Health, Stats)) async throws {
-        guard canSavePreferences else { throw HubError.incompatible("请先修复设置文件，避免覆盖较新版本配置") }
+        guard canSavePreferences else { throw HubError.incompatible(L10n.text("请先修复设置文件，避免覆盖较新版本配置")) }
         savingConnection = true; preferenceSaveTask?.cancel()
         defer { savingConnection = false; savePreferences() }
         let (connection, health, snapshot) = result
@@ -295,7 +306,7 @@ import MonitorCore
         stopConnection()
         let id = sessionID
         let client = makeClient(connection); self.client = client
-        online = false; status = "正在连接…"; error = nil
+        online = false; status = L10n.text("正在连接…"); error = nil
         connectionTask = Task { [weak self] in
             var delay: Double = 1
             while !Task.isCancelled {
@@ -314,13 +325,13 @@ import MonitorCore
                         }
                         throw HubError.disconnected
                     } catch HubError.unsupportedStream {
-                        self.status = "已连接 · 每 30 秒刷新"
+                        self.status = L10n.text("已连接 · 每 30 秒刷新")
                         // Re-probe SSE every five minutes so a backend upgrade can restore live mode.
                         for _ in 0..<10 {
                             try await self.pause(30)
                             let snapshot = try await client.stats()
                             guard !Task.isCancelled, self.sessionID == id else { return }
-                            self.accept(snapshot); self.status = "已连接 · 每 30 秒刷新"
+                            self.accept(snapshot); self.status = L10n.text("已连接 · 每 30 秒刷新")
                         }
                     }
                 } catch {
@@ -328,10 +339,10 @@ import MonitorCore
                     self.online = false
                     self.error = error.localizedDescription
                     if let error = error as? HubError {
-                        if error == .unauthorized { self.status = "密钥需要检查"; return }
-                        if case .incompatible = error { self.status = "数据格式需要检查"; return }
+                        if error == .unauthorized { self.status = L10n.text("密钥需要检查"); return }
+                        if case .incompatible = error { self.status = L10n.text("数据格式需要检查"); return }
                     }
-                    self.status = "离线 · 将自动重连"
+                    self.status = L10n.text("离线 · 将自动重连")
                     do { try await self.pause(delay) } catch { return }
                     delay = min(delay * 2, 30)
                 }
@@ -340,7 +351,7 @@ import MonitorCore
     }
     func accept(_ snapshot: Stats) {
         stats = snapshot; now = Date(); receivedAt = now
-        online = true; error = nil; status = "已连接 · 实时同步"
+        online = true; error = nil; status = L10n.text("已连接 · 实时同步")
         reconcileToolSelection()
         preparePresentation()
         if historyWanted && (history == nil || loadedHistoryRevision != snapshot.historyRevision) { loadHistory() }
@@ -350,14 +361,14 @@ import MonitorCore
         guard Identity.isBeta, !ephemeral, !BetaBackend.shared.localOnly, BetaBackend.shared.snapshot?.sync?.enabled == true else { return }
         if let stamp = BetaBackend.shared.snapshot?.sync?.lastSuccess, let date = DateCodec.parse(stamp) { receivedAt = date }
         if BetaBackend.shared.snapshot?.sync?.error != nil { online = false; status = BetaBackend.shared.syncMessage }
-        else if BetaBackend.shared.snapshot?.sync?.lastSuccess != nil { online = true; status = "已连接 · Hub 多设备同步" }
+        else if BetaBackend.shared.snapshot?.sync?.lastSuccess != nil { online = true; status = L10n.text("已连接 · Hub 多设备同步") }
     }
     func refresh() {
         if Identity.isBeta && !ephemeral { Task { await BetaBackend.shared.command("refresh") }; BetaBackend.shared.reconnect(); return }
         if let client { connect(client.connection) }
         else { needsSetup = true }
     }
-    func sleep() { stopConnection(); online = false; status = "已暂停 · 等待唤醒" }
+    func sleep() { stopConnection(); online = false; status = L10n.text("已暂停 · 等待唤醒") }
     func wake() {
         if Identity.isBeta && !ephemeral { BetaBackend.shared.reconnect(); return }
         if let client { connect(client.connection) }
@@ -401,6 +412,6 @@ import MonitorCore
     func preview(statsURL: URL, historyURL: URL?) throws {
         accept(try Stats.decode(Data(contentsOf: statsURL)))
         if let historyURL { history = try History.decode(Data(contentsOf: historyURL)) }
-        status = "界面验证 · 示例数据"; online = false
+        status = L10n.text("界面验证 · 示例数据"); online = false
     }
 }

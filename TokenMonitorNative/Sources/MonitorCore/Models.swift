@@ -2,20 +2,20 @@ import Foundation
 
 public enum Period: String, CaseIterable, Codable, Sendable {
     case today, month, allTime
-    public var title: String { switch self { case .today: "今天"; case .month: "本月"; case .allTime: "总计" } }
+    public var title: String { switch self { case .today: L10n.text("今天"); case .month: L10n.text("本月"); case .allTime: L10n.text("总计") } }
 }
 
 public enum HubError: Error, LocalizedError, Equatable {
     case invalidURL, unauthorized, unsupportedStream, incompatible(String), http(Int), disconnected, invalidSecret
     public var errorDescription: String? {
         switch self {
-        case .invalidURL: "请输入有效的 HTTP 或 HTTPS Hub 地址，不含用户名、密码、查询参数或片段。"
-        case .unauthorized: "共享密钥不正确。请在连接设置中检查密钥。"
-        case .invalidSecret: "共享密钥不能为空，也不能包含换行。"
-        case .unsupportedStream: "Hub 暂不支持串流，改用定时刷新。"
-        case .incompatible(let context): "Hub 数据格式不兼容（\(context)），已保留上次有效数据。"
-        case .http(let code): "Hub 返回 HTTP \(code)。"
-        case .disconnected: "Hub 连接已断开，正在重新连接。"
+        case .invalidURL: L10n.text("请输入有效的 HTTP 或 HTTPS Hub 地址，不含用户名、密码、查询参数或片段。")
+        case .unauthorized: L10n.text("共享密钥不正确。请在“数据”设置中检查密钥。")
+        case .invalidSecret: L10n.text("共享密钥不能为空，也不能包含换行。")
+        case .unsupportedStream: L10n.text("Hub 暂不支持串流，改用定时刷新。")
+        case .incompatible(let context): L10n.text("Hub 数据格式不兼容（%@），已保留上次有效数据。", String(describing: context))
+        case .http(let code): L10n.text("Hub 返回 HTTP %@。", String(describing: code))
+        case .disconnected: L10n.text("Hub 连接已断开，正在重新连接。")
         }
     }
 }
@@ -82,16 +82,26 @@ public struct Device: Codable, Identifiable, Sendable {
     public let periodWindows: PeriodWindows?
     public var reportDate: Date? { DateCodec.parse(receivedAt) ?? DateCodec.parse(updatedAt) }
     public func collectionNote(tool: String) -> String? {
-        let states = tool.isEmpty ? Array(clientHealth?.clients.values.map(\.overall) ?? []) : [clientHealth?.clients[tool]?.overall].compactMap { $0 }
-        if states.contains("unavailable") { return "日志来源缺失 · 请检查原应用" }
-        if states.contains("attention") { return "采集需要检查 · 请打开原应用" }
-        if states.contains("waiting") { return "已发现日志来源 · 等待用量" }
-        if states.contains("unknown") { return "采集状态未知" }
-        let legacy = tool.isEmpty ? Array(clientStatus?.values ?? Dictionary<String, String>().values) : [clientStatus?[tool]].compactMap { $0 }
-        if legacy.contains("missing") { return "日志来源缺失 · 请检查原应用" }
-        if legacy.contains("waiting") { return "等待日志用量" }
-        return nil
+        let names = tool.isEmpty
+            ? Set(clientHealth?.clients.keys.map { $0 } ?? []).union(clientStatus?.keys.map { $0 } ?? []).sorted()
+            : [tool]
+        let notes = names.compactMap { name -> String? in
+            let state = clientHealth?.clients[name]?.overall ?? clientStatus?[name]
+            let hasUsage = periods.values.contains { ($0.clients?[name] ?? 0) > 0 }
+            // An absent, never-used tool is not a fault of the device as a whole.
+            if tool.isEmpty && !hasUsage && ["unavailable", "missing", "unknown"].contains(state ?? "") { return nil }
+            let title = name == "codex" ? "Codex" : name == "claude" ? "Claude" : name
+            switch state {
+            case "unavailable", "missing": return L10n.text("%@：未找到用量日志", title)
+            case "attention": return L10n.text("%@：采集需要检查，请打开该应用", title)
+            case "waiting": return L10n.text("%@：已发现日志，等待用量", title)
+            case "unknown": return L10n.text("%@：采集状态未知", title)
+            default: return nil
+            }
+        }
+        return notes.isEmpty ? nil : notes.joined(separator: "\n")
     }
+
     public func isStale(at now: Date, threshold: Double) -> Bool {
         guard let date = reportDate else { return stale ?? true }
         guard threshold > 0 else { return stale ?? false }
@@ -143,11 +153,11 @@ public struct Stats: Codable, Sendable {
                   stats.periods.values.allSatisfy({ $0.totalTokens.isFinite && $0.totalTokens >= 0 }),
                   Set(stats.devices.map(\.id)).count == stats.devices.count,
                   stats.devices.allSatisfy({ device in !device.id.isEmpty && Period.allCases.allSatisfy({ p in device.periods[p.rawValue] != nil }) })
-            else { throw HubError.incompatible("缺失统计周期、时间戳或设备数据") }
+            else { throw HubError.incompatible(L10n.text("缺失统计周期、时间戳或设备数据")) }
             return stats
         } catch let error as HubError { throw error }
-        catch let error as DecodingError { throw HubError.incompatible("统计响应 · " + decodingLocation(error)) }
-        catch { throw HubError.incompatible("统计响应") }
+        catch let error as DecodingError { throw HubError.incompatible(L10n.text("统计响应 · ") + decodingLocation(error)) }
+        catch { throw HubError.incompatible(L10n.text("统计响应")) }
     }
     public var tools: [String] {
         Array(Set(periods.values.flatMap { Array(($0.clients ?? [:]).keys) } + devices.flatMap { $0.trackedClients ?? [] })).sorted()
@@ -155,9 +165,9 @@ public struct Stats: Codable, Sendable {
 }
 private func decodingLocation(_ error: DecodingError) -> String {
     switch error {
-    case .keyNotFound(let key, let context): return (context.codingPath.map(\.stringValue) + [key.stringValue]).joined(separator: ".") + " 缺失"
-    case .typeMismatch(_, let context), .valueNotFound(_, let context), .dataCorrupted(let context): return context.codingPath.map(\.stringValue).joined(separator: ".") + " 类型或值不符"
-    @unknown default: return "未知字段位置"
+    case .keyNotFound(let key, let context): return (context.codingPath.map(\.stringValue) + [key.stringValue]).joined(separator: ".") + L10n.text(" 缺失")
+    case .typeMismatch(_, let context), .valueNotFound(_, let context), .dataCorrupted(let context): return context.codingPath.map(\.stringValue).joined(separator: ".") + L10n.text(" 类型或值不符")
+    @unknown default: return L10n.text("未知字段位置")
     }
 }
 
@@ -187,7 +197,7 @@ public struct History: Codable, Sendable {
     public let monthly: [HistoryRow]
     public static func decode(_ data: Data) throws -> History {
         do { return try JSONDecoder().decode(History.self, from: data) }
-        catch { throw HubError.incompatible("历史响应") }
+        catch { throw HubError.incompatible(L10n.text("历史响应")) }
     }
     public func points(monthly: Bool, tool: String, now: Date = Date(), count requestedCount: Int? = nil) -> [TrendPoint] {
         let rows = monthly ? self.monthly : self.daily

@@ -2,6 +2,17 @@ import AppKit
 import SwiftUI
 import MonitorCore
 
+/// Forward explicit presentation preferences, while allowing each hosting view to
+/// receive its live color scheme from AppKit instead of freezing an EnvironmentValues snapshot.
+private func nativeHostedContent<V: View>(_ content: V, environment: EnvironmentValues, tint: Color?) -> AnyView {
+    AnyView(content
+        .environment(\.locale, environment.locale)
+        .environment(\.calendar, environment.calendar)
+        .environment(\.timeZone, environment.timeZone)
+        .environment(\.controlSize, environment.controlSize)
+        .tint(tint).accentColor(tint))
+}
+
 /// Offset policy is independent of SwiftUI identity and late geometry updates.
 struct HistoryScrollPosition {
     private(set) var followsLatest = true
@@ -26,22 +37,26 @@ struct HistoryScrollView<Content: View>: NSViewRepresentable {
     var prepends = false
     var points: [TrendPoint]
     var tint: Color?
+    var heatmapHover = false
+    var barHover: ChartHoverGeometry? = nil
     var viewportChanged: ((CGFloat) -> Void)? = nil
     @ViewBuilder var content: () -> Content
-    func makeNSView(context: Context) -> HistoryNativeScroll { HistoryNativeScroll(content: AnyView(content().environment(\.self, context.environment))) }
+    func makeNSView(context: Context) -> HistoryNativeScroll { HistoryNativeScroll(content: nativeHostedContent(content(), environment: context.environment, tint: tint)) }
     func updateNSView(_ view: HistoryNativeScroll, context: Context) {
         view.viewportChanged = viewportChanged
+        view.configureHeatmapHover(enabled: heatmapHover || barHover != nil, points: points, tint: tint, geometry: barHover ?? .heatmap)
         let key = HistoryDrawingKey(size: NSSize(width: width, height: height), points: points, tint: tint, scheme: context.environment.colorScheme,
                                     differentiate: context.environment.accessibilityDifferentiateWithoutColor,
                                     locale: context.environment.locale, calendar: context.environment.calendar,
                                     scale: context.environment.displayScale)
         if view.drawingKey != key {
+            view.heatmapOverlay?.clear()
             view.drawingKey = key
-            view.host.rootView = AnyView(content().environment(\.self, context.environment).tint(tint).accentColor(tint))
+            view.host.setContent(nativeHostedContent(content(), environment: context.environment, tint: tint))
         }
         view.documentSize = NSSize(width: width, height: height)
         view.prepends = prepends
-        if view.resetKey != resetKey { view.resetKey = resetKey; view.position.reset() }
+        if view.resetKey != resetKey { view.heatmapOverlay?.clear(); view.resetKey = resetKey; view.position.reset() }
         view.needsLayout = true
     }
 }
@@ -55,9 +70,29 @@ struct HistoryDrawingKey: Equatable {
     let calendar: Calendar
     let scale: CGFloat
 }
+private final class HistoryDocumentView: NSView {
+    override var isFlipped: Bool { true }
+}
 final class HistoryNativeScroll: NSScrollView {
+    private let document = HistoryDocumentView()
+    private(set) var heatmapOverlay: HeatmapHoverView?
+    func configureHeatmapHover(enabled: Bool, points: [TrendPoint], tint: Color? = nil, geometry: ChartHoverGeometry = .heatmap) {
+        if enabled {
+            if heatmapOverlay == nil {
+                let overlay = HeatmapHoverView(frame: document.bounds)
+                overlay.autoresizingMask = [.width, .height]
+                document.addSubview(overlay, positioned: .above, relativeTo: nil)
+                heatmapOverlay = overlay
+            }
+            heatmapOverlay?.geometry = geometry
+            heatmapOverlay?.points = points
+            heatmapOverlay?.accent = tint.map { NSColor($0) }
+        } else {
+            heatmapOverlay?.clear(); heatmapOverlay?.removeFromSuperview(); heatmapOverlay = nil
+        }
+    }
     var drawingKey: HistoryDrawingKey?
-    let host: NSHostingView<AnyView>
+    let host: LiveAppearanceHostingView
     var documentSize = NSSize.zero
     var resetKey = ""
     var prepends = false
@@ -67,12 +102,13 @@ final class HistoryNativeScroll: NSScrollView {
     private var notifiedWidth: CGFloat = -1
     private var lastViewport = NSSize.zero
     init(content: AnyView) {
-        host = NSHostingView(rootView: content)
+        host = LiveAppearanceHostingView(content: content)
         super.init(frame: .zero)
         drawsBackground = false
         hasHorizontalScroller = false; hasVerticalScroller = false
         horizontalScrollElasticity = .none; verticalScrollElasticity = .none
-        host.sizingOptions = []; documentView = host
+        host.sizingOptions = []; host.autoresizingMask = [.width, .height]
+        document.addSubview(host); documentView = document
         contentView.postsBoundsChangedNotifications = true
         NotificationCenter.default.addObserver(self, selector: #selector(boundsChanged), name: NSView.boundsDidChangeNotification, object: contentView)
     }
@@ -80,7 +116,9 @@ final class HistoryNativeScroll: NSScrollView {
     override func layout() {
         positioning = true
         super.layout()
+        if document.frame.size != documentSize { document.setFrameSize(documentSize) }
         if host.frame.size != documentSize { host.setFrameSize(documentSize) }
+        heatmapOverlay?.frame = document.bounds
         if notifiedWidth != contentView.bounds.width {
             notifiedWidth = contentView.bounds.width
             let width = notifiedWidth
@@ -97,6 +135,7 @@ final class HistoryNativeScroll: NSScrollView {
         position.userScrolled(to: contentView.bounds.minX)
     }
     override func scrollWheel(with event: NSEvent) {
+        heatmapOverlay?.clear()
         let shifted = event.modifierFlags.contains(.shift)
         if !shifted, abs(event.scrollingDeltaY) > abs(event.scrollingDeltaX) {
             // Bypass SwiftUI's hosting responder: it can consume a forwarded event.
@@ -139,14 +178,15 @@ final class QuietScroller: NSScroller {
 }
 
 struct PageScrollView<Content: View>: NSViewRepresentable {
+    var tint: Color? = nil
     @ViewBuilder var content: () -> Content
-    func makeNSView(context: Context) -> PageNativeScroll { PageNativeScroll(content: AnyView(content().environment(\.self, context.environment))) }
+    func makeNSView(context: Context) -> PageNativeScroll { PageNativeScroll(content: nativeHostedContent(content(), environment: context.environment, tint: tint)) }
     func updateNSView(_ view: PageNativeScroll, context: Context) {
-        view.setContent(AnyView(content().environment(\.self, context.environment)))
+        view.setContent(nativeHostedContent(content(), environment: context.environment, tint: tint))
     }
 }
 final class PageNativeScroll: NSScrollView {
-    let host: NSHostingView<AnyView>
+    let host: LiveAppearanceHostingView
     private let thumb = QuietScroller()
     private var edgeTracking: NSTrackingArea?
     private var hideWork: DispatchWorkItem?
@@ -155,7 +195,7 @@ final class PageNativeScroll: NSScrollView {
     private var measuring = false
     private var documentHeight: CGFloat = 0
     init(content: AnyView) {
-        host = NSHostingView(rootView: content)
+        host = LiveAppearanceHostingView(content: content)
         super.init(frame: .zero)
         drawsBackground = false
         hasVerticalScroller = false; hasHorizontalScroller = false
@@ -170,11 +210,11 @@ final class PageNativeScroll: NSScrollView {
         NotificationCenter.default.addObserver(self, selector: #selector(scrolled), name: NSView.boundsDidChangeNotification, object: contentView)
     }
     func setContent(_ content: AnyView) {
-        host.rootView = AnyView(content.fixedSize(horizontal: false, vertical: true)
+        host.setContent(AnyView(content.fixedSize(horizontal: false, vertical: true)
             .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { [weak self] height in
                 guard let self, abs(self.documentHeight - height) > 0.5 else { return }
                 self.documentHeight = height; self.needsLayout = true
-            }.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading))
+            }.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)))
         needsLayout = true
     }
     required init?(coder: NSCoder) { fatalError() }

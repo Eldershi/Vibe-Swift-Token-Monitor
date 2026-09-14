@@ -16,7 +16,7 @@ import XCTest
         var requests = 0; let health = try fixture("health")
         MockURLProtocol.handler = { req in requests += 1; return req.url!.path == "/api/health" ? (200,"application/json",[health]) : (401,"application/json",[]) }
         let s = store(); s.stats = try Stats.decode(fixture("stats")); s.connect(try connection()); defer { s.stopConnection() }
-        try await until { s.status == "密钥需要检查" }
+        try await until { s.status == L10n.text("密钥需要检查") }
         let count = requests; try await Task.sleep(for:.milliseconds(50))
         XCTAssertEqual(requests,count); XCTAssertFalse(s.online); XCTAssertEqual(s.stats?.devices.count,2)
     }
@@ -66,7 +66,7 @@ import XCTest
         let health = try fixture("health")
         MockURLProtocol.handler = { req in req.url!.path == "/api/health" ? (200,"application/json",[health]) : (200,"application/json",[Data("{}".utf8)]) }
         let s = store(); s.stats = try Stats.decode(fixture("stats")); s.connect(try connection()); defer { s.stopConnection() }
-        try await until { s.status == "数据格式需要检查" }
+        try await until { s.status == L10n.text("数据格式需要检查") }
         XCTAssertEqual(s.stats?.periods["today"]?.totalTokens,125000); XCTAssertFalse(s.online)
     }
     func visibilityStore(clients: [String: Double], status: [String: String] = [:], stale: Bool = false) throws -> AppStore {

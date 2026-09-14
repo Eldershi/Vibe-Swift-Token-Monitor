@@ -59,12 +59,12 @@ public final class HubClient: @unchecked Sendable {
         try Task.checkCancellation()
         let (data, response) = try await session.data(for: connection.request(endpoint))
         try validate(response)
-        guard data.count <= 64 * 1024 * 1024 else { throw HubError.incompatible("响应过大") }
+        guard data.count <= 64 * 1024 * 1024 else { throw HubError.incompatible(L10n.text("响应过大")) }
         return data
     }
     public func health() async throws -> Health {
         let data = try await data("api/health")
-        guard let health = try? JSONDecoder().decode(Health.self, from: data), health.ok, health.role == "hub" else { throw HubError.incompatible("健康检查") }
+        guard let health = try? JSONDecoder().decode(Health.self, from: data), health.ok, health.role == "hub" else { throw HubError.incompatible(L10n.text("健康检查")) }
         return health
     }
     public func stats() async throws -> Stats { try Stats.decode(await data("api/stats")) }

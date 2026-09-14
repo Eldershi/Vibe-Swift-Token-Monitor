@@ -14,33 +14,33 @@ struct BetaHubSettings: View {
     @State private var validatedAddress = ""
     @State private var validatedSecret = ""
     var body: some View {
-        Form {
-            Section("Hub") {
-                LabeledContent("同步状态", value: backend.syncMessage)
-                LabeledContent("最后成功同步", value: backend.snapshot?.sync?.lastSuccess.flatMap(DateCodec.parse)?.formatted(date: .abbreviated, time: .standard) ?? "尚未同步")
-                Picker("查看数据", selection: Binding(get: { backend.localOnly }, set: { backend.selectLocal($0) })) {
-                    Text("共享 Hub · 全部设备").tag(false)
-                    Text("仅本机").tag(true)
+        Group {
+            Section(L10n.text("Hub 同步")) {
+                Picker(L10n.text("查看数据"), selection: Binding(get: { backend.localOnly }, set: { backend.selectLocal($0) })) {
+                    Text(L10n.text("共享 Hub · 全部设备")).tag(false)
+                    Text(L10n.text("仅本机")).tag(true)
                 }.tint(controlTint).accentColor(controlTint)
-                TextField("Hub 地址", text: $address).disabled(busy)
-                SecureField("共享密钥", text: $secret).disabled(busy)
-                Button("验证连接并读取设备") { Task { await validate() } }.disabled(busy || secret.isEmpty)
+                LabeledContent(L10n.text("同步状态"), value: backend.syncMessage)
+                LabeledContent(L10n.text("最后成功同步"), value: backend.snapshot?.sync?.lastSuccess.flatMap(DateCodec.parse)?.formatted(date: .abbreviated, time: .standard) ?? L10n.text("尚未同步"))
+                TextField(L10n.text("Hub 地址"), text: $address).disabled(busy)
+                SecureField(L10n.text("共享密钥"), text: $secret).disabled(busy)
+                Button(L10n.text("验证连接并读取设备")) { Task { await validate() } }.disabled(busy || secret.isEmpty)
                 if !devices.isEmpty {
-                    Picker("此 Mac 对应的已有设备", selection: $deviceID) {
-                        Text("请选择设备").tag("")
+                    Picker(L10n.text("此 Mac 对应的已有设备"), selection: $deviceID) {
+                        Text(L10n.text("请选择设备")).tag("")
                         ForEach(devices) { Text($0.id).tag($0.id) }
                     }.tint(controlTint).accentColor(controlTint)
-                    Button("保存并启用同步") { Task { await enable() } }.disabled(busy || deviceID.isEmpty)
+                    Button(L10n.text("保存并启用同步")) { Task { await enable() } }.disabled(busy || deviceID.isEmpty)
                 }
                 if backend.snapshot?.sync?.enabled == true {
-                    Button("停用 Hub 同步") { Task {
+                    Button(L10n.text("停用 Hub 同步")) { Task {
                         do { try await backend.configureHub(enabled: false) } catch { message = error.localizedDescription }
                     } }.disabled(busy)
                 }
                 if !message.isEmpty { Text(message).font(.caption) }
 
             }
-        }.formStyle(.grouped)
+        }
             .onAppear { loadConfiguration() }
             .onChange(of: backend.snapshot?.sync?.address) { loadConfiguration() }
             .onChange(of: address) { if address != validatedAddress { devices = [] } }
@@ -62,14 +62,14 @@ struct BetaHubSettings: View {
             validatedAddress = connection.baseURL.absoluteString; validatedSecret = secret
             address = validatedAddress
             devices = stats.devices
-            message = "连接有效"
+            message = L10n.text("连接有效")
         } catch { message = error.localizedDescription; devices = [] }
     }
     private func enable() async {
         busy = true; defer { busy = false }
         do {
             try await backend.configureHub(address: address, secret: secret, deviceId: deviceID, enabled: true)
-            secret = ""; validatedSecret = ""; devices = []; message = "已保存并启用"
+            secret = ""; validatedSecret = ""; devices = []; message = L10n.text("已保存并启用")
         } catch { message = error.localizedDescription }
     }
 }

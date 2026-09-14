@@ -5,8 +5,8 @@ import MonitorCore
 struct ToolPicker: View {
     @Bindable var store: AppStore
     var body: some View {
-        Picker("工具", selection: $store.preferences.tool) {
-            Text("全部工具").tag("")
+        Picker(L10n.text("工具"), selection: $store.preferences.tool) {
+            Text(L10n.text("全部工具")).tag("")
             ForEach(store.tools, id: \.self) { Text($0 == "codex" ? "Codex" : $0).tag($0) }
         }.onChange(of: store.preferences.tool) { store.savePreferences() }
     }
@@ -15,17 +15,18 @@ extension AppStore {
     var connectionDisplayStatus: String {
         guard online else { return status }
         let local = Identity.isBeta && (BetaBackend.shared.localOnly || BetaBackend.shared.snapshot?.sync?.enabled != true)
-        return local ? "已连接本机" : "已连接Hub"
+        return local ? L10n.text("已连接本机") : L10n.text("已连接Hub")
     }
 }
 struct ConnectionFooter: View {
     var store: AppStore
     var body: some View {
-        VStack(alignment: .leading, spacing: 5) {
+        VStack(alignment: .trailing, spacing: 5) {
             Label(store.connectionDisplayStatus, systemImage: store.online ? "checkmark.circle" : "exclamationmark.circle")
                 .foregroundStyle(store.online ? Color.green : Color.secondary)
             if let error = store.error { Text(error).foregroundStyle(.secondary) }
         }.font(.caption).foregroundStyle(.secondary).textSelection(.enabled)
+            .frame(maxWidth: .infinity, alignment: .trailing).multilineTextAlignment(.trailing)
             .accessibilityElement(children: .combine)
     }
 }
@@ -34,66 +35,80 @@ struct SummaryView: View {
     var compact = false
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("\(store.selectedToolTitle) · \(store.preferences.period.title)").font(.subheadline).foregroundStyle(.secondary)
+            Text(store.selectedToolTitle).font(.subheadline).foregroundStyle(.secondary)
             Text(DisplayFormat.tokens(store.selectedTokens))
                 .font(.system(size: compact ? 34 : 46, weight: .semibold, design: .rounded))
                 .monospacedDigit().lineLimit(1).minimumScaleFactor(0.4)
-                .accessibilityLabel("总用量 \(DisplayFormat.tokens(store.selectedTokens)) tokens")
+                .accessibilityLabel(L10n.text("总用量 %@ tokens", String(describing: DisplayFormat.tokens(store.selectedTokens))))
             Text("tokens").foregroundStyle(.secondary)
-            Text("\(DisplayFormat.cost(store.selectedCost)) · API 等价估算").font(.subheadline)
-                .help("由 Hub 提供的 API 等价费用，不代表订阅账单。")
+            Text(L10n.text("%@ · API 等价估算", String(describing: DisplayFormat.cost(store.selectedCost)))).font(.subheadline)
+                .help(L10n.text("由 Hub 提供的 API 等价费用，不代表订阅账单。"))
             if store.stats != nil && store.selectedTokens == nil {
-                Text("Hub 尚未报告此工具的数据").font(.caption).foregroundStyle(.secondary)
+                Text(L10n.text("Hub 尚未报告此工具的数据")).font(.caption).foregroundStyle(.secondary)
             } else if store.selectedTokens == 0 {
-                Text("此范围已报告 0 用量").font(.caption).foregroundStyle(.secondary)
+                Text(L10n.text("此范围已报告 0 用量")).font(.caption).foregroundStyle(.secondary)
             }
         }.textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading)
             .accessibilityElement(children: .ignore)
-            .accessibilityLabel("\(store.selectedToolTitle)，\(store.preferences.period.title)，总用量 \(DisplayFormat.tokens(store.selectedTokens)) tokens，API 等价估算 \(DisplayFormat.cost(store.selectedCost))。\(store.selectedTokens == nil ? "Hub 尚未报告此工具的数据" : "")")
+            .accessibilityLabel(L10n.text("%@，%@，总用量 %@ tokens，API 等价估算 %@。%@", String(describing: store.selectedToolTitle), String(describing: store.preferences.period.title), String(describing: DisplayFormat.tokens(store.selectedTokens)), String(describing: DisplayFormat.cost(store.selectedCost)), String(describing: store.selectedTokens == nil ? L10n.text("Hub 尚未报告此工具的数据") : "")))
     }
 }
 struct SetupPrompt: View {
     var body: some View {
         if Identity.isBeta {
             ContentUnavailableView {
-                Label(BetaBackend.shared.enabled ? "正在准备本机数据" : "后台已停用", systemImage: "externaldrive")
+                Label(BetaBackend.shared.enabled ? L10n.text("正在准备本机数据") : L10n.text("后台已停用"), systemImage: "externaldrive")
             } description: {
                 Text(BetaBackend.shared.message)
-            } actions: { SettingsLink { Text("后台设置…") } }
+            } actions: { SettingsLink { Text(L10n.text("数据设置…")) } }
+            .frame(maxWidth: .infinity)
         } else {
         ContentUnavailableView {
-            Label("连接你的 Hub", systemImage: "network")
+            Label(L10n.text("连接你的 Hub"), systemImage: "network")
         } description: {
-            Text("填写 Hub 地址与共享密钥，即可查看已有统计。")
-        } actions: { SettingsLink { Text("设置连接…") } }
+            Text(L10n.text("填写 Hub 地址与共享密钥，即可查看已有统计。"))
+        } actions: { SettingsLink { Text(L10n.text("数据设置…")) } }
+            .frame(maxWidth: .infinity)
         }
     }
 }
 struct DeviceRow: View {
     let device: Device
+    var usageFraction: Double? = nil
     var store: AppStore
     var compact = false
+    private var collectionNote: String? { compact ? nil : device.collectionNote(tool: store.preferences.tool) }
+    private var displayedFraction: Double? { !compact || store.preferences.showHomeDeviceUsageBars ? usageFraction : nil }
     var body: some View {
         let stale = device.isStale(at: store.statusClock, threshold: store.stats?.staleAfterMs ?? 600_000)
         let expired = device.periodExpired(store.preferences.period, at: store.statusClock)
         VStack(alignment: .leading, spacing: 6) {
             HStack(alignment: .firstTextBaseline) {
-                Text(device.id).fontWeight(.medium).lineLimit(1).truncationMode(.middle)
+                HStack(alignment: .center, spacing: 6) {
+                    DeviceSystemIcon(osName: device.osName)
+                    Text(device.id).fontWeight(.medium).lineLimit(1).truncationMode(.middle)
+                }
                 Spacer()
-                Text(expired ? "上一周期数据" : DisplayFormat.tokens(device.periods[store.preferences.period.rawValue]?.tokens(tool: store.preferences.tool)))
+                Text(expired ? L10n.text("上一周期数据") : DisplayFormat.tokens(device.periods[store.preferences.period.rawValue]?.tokens(tool: store.preferences.tool)))
                     .monospacedDigit().lineLimit(1).minimumScaleFactor(0.5)
             }
-            Label(stale ? "上报数据已过期" : "上报有效", systemImage: stale ? "clock.badge.exclamationmark" : "checkmark.circle")
+            if let fraction = displayedFraction {
+                ProgressView(value: fraction, total: 1).progressViewStyle(.linear)
+                    .tint(store.preferences.accentColor)
+                    .accessibilityLabel(L10n.text("相对最高用量设备"))
+                    .accessibilityValue(fraction.formatted(.percent.precision(.fractionLength(0))))
+            }
+            Label(stale ? L10n.text("上报数据已过期") : L10n.text("上报有效"), systemImage: stale ? "clock.badge.exclamationmark" : "checkmark.circle")
                 .font(.caption).foregroundStyle(stale ? Color.orange : Color.green)
-            if let note = device.collectionNote(tool: store.preferences.tool) {
+            if let note = collectionNote {
                 Text(note).font(.caption).foregroundStyle(.secondary)
             }
             if !compact {
-                Text("最后上报：\(device.reportDate?.formatted(date: .abbreviated, time: .standard) ?? "未提供")").font(.caption).foregroundStyle(.secondary)
-                if let os = device.osName { Text("\(os) \(device.osVersion ?? "") · Agent \(device.agentVersion ?? "未知")").font(.caption).foregroundStyle(.secondary) }
+                Text(L10n.text("最后上报：%@", String(describing: device.reportDate?.formatted(date: .abbreviated, time: .standard) ?? L10n.text("未提供")))).font(.caption).foregroundStyle(.secondary)
+                if let os = device.osName { Text("\(os) \(device.osVersion ?? "") · Agent \(device.agentVersion ?? L10n.text("未知"))").font(.caption).foregroundStyle(.secondary) }
             }
         }.textSelection(.enabled).accessibilityElement(children: .ignore)
-            .accessibilityLabel("\(device.id)，\(expired ? "上一周期数据" : DisplayFormat.tokens(device.periods[store.preferences.period.rawValue]?.tokens(tool: store.preferences.tool)) + " tokens")，\(stale ? "上报数据已过期" : "上报有效")，最后上报 \(device.reportDate?.formatted(date: .abbreviated, time: .standard) ?? "未提供")。\(device.collectionNote(tool: store.preferences.tool) ?? "")")
+            .accessibilityLabel(L10n.text("%@，%@，%@，最后上报 %@。%@", String(describing: device.id), String(describing: expired ? L10n.text("上一周期数据") : DisplayFormat.tokens(device.periods[store.preferences.period.rawValue]?.tokens(tool: store.preferences.tool)) + " tokens"), String(describing: stale ? L10n.text("上报数据已过期") : L10n.text("上报有效")), String(describing: device.reportDate?.formatted(date: .abbreviated, time: .standard) ?? L10n.text("未提供")), String(describing: collectionNote ?? "")) + (displayedFraction.map { " " + L10n.text("相对最高用量设备：%@", $0.formatted(.percent.precision(.fractionLength(0)))) } ?? ""))
     }
 }
 enum InterfaceSymbols {
@@ -110,16 +125,17 @@ enum InterfaceSymbols {
     }
 }
 enum Page: String, CaseIterable, Identifiable {
-    case overview = "总览", devices = "设备", models = "模型", trends = "趋势", usage = "用量", quota = "额度", activity = "活动"
+    case overview = "总览", devices = "设备", models = "模型", trends = "趋势", quota = "额度", activity = "活动"
+    var title: String { L10n.text(rawValue) }
     var id: String { rawValue }
-    var symbol: String { switch self { case .overview: "chart.bar.xaxis"; case .devices: "server.rack"; case .models: "square.stack.3d.up"; case .trends: "chart.xyaxis.line"; case .usage: "clock"; case .quota: "timer"; case .activity: "calendar" } }
+    var symbol: String { switch self { case .overview: "chart.bar.xaxis"; case .devices: "server.rack"; case .models: "square.stack.3d.up"; case .trends: "chart.xyaxis.line"; case .quota: "timer"; case .activity: "calendar" } }
 }
 struct CompactView: View {
     @Bindable var store: AppStore
     @AppStorage("compactPage") private var selectedPage = Page.overview.rawValue
     var body: some View {
         ZStack(alignment: .bottom) {
-            PageScrollView {
+            PageScrollView(tint: store.preferences.accentColor) {
                 VStack(alignment: .leading, spacing: 22) {
                     if store.stats == nil { SetupPrompt() }
                     else {
@@ -128,8 +144,8 @@ struct CompactView: View {
                                 Button { selectedPage = Page.overview.rawValue } label: {
                                     Image(systemName: "chevron.left").font(.body.weight(.medium))
                                         .frame(width: 20, height: 28)
-                                }.buttonStyle(.plain).help("返回总览").accessibilityLabel("返回总览")
-                                Text((Page(rawValue: selectedPage) ?? .overview).rawValue).font(.headline)
+                                }.buttonStyle(.plain).help(L10n.text("返回总览")).accessibilityLabel(L10n.text("返回总览"))
+                                Text((Page(rawValue: selectedPage) ?? .overview).title).font(.headline)
                                 Spacer(minLength: 8)
                                 if selectedPage == Page.models.rawValue { ModelSortPicker(store: store) }
                             }
@@ -137,14 +153,14 @@ struct CompactView: View {
                         switch Page(rawValue: selectedPage) ?? .overview {
                         case .overview: OverviewView(store: store, selectedPage: $selectedPage)
                         case .devices:
-                            if store.devices.isEmpty { Text("尚无设备数据").foregroundStyle(.secondary) }
-                            ForEach(store.devices) { DeviceRow(device: $0, store: store) }
+                            if store.devices.isEmpty { Text(L10n.text("尚无设备数据")).foregroundStyle(.secondary) }
+                            let fractions = store.deviceUsageFractions
+                            ForEach(store.devices) { DeviceRow(device: $0, usageFraction: fractions[$0.id], store: store) }
                         case .models: ModelsView(store: store)
                         case .trends: TrendsView(store: store)
-                        case .usage: UsageDetailView(store: store)
                         case .quota:
                             QuotaView(store: store, showHeading: false)
-                            if store.quotaProviders.isEmpty { Text("暂无可用额度数据").foregroundStyle(.secondary) }
+                            if store.quotaProviders.isEmpty { Text(L10n.text("暂无可用额度数据")).foregroundStyle(.secondary) }
                         case .activity: ActivityDetailView(store: store)
                         }
                     }
@@ -157,13 +173,13 @@ struct CompactView: View {
                 HStack(spacing: 10) {
                     HStack(spacing: 0) {
                         FloatingMenuButton(items: Page.allCases.map { page in
-                            FloatingMenuItem(title: page.rawValue, symbol: page.symbol) { selectedPage = page.rawValue }
+                            FloatingMenuItem(title: page.title, symbol: page.symbol) { selectedPage = page.rawValue }
                         }) {
                             Image(systemName: (Page(rawValue: selectedPage) ?? .overview).symbol)
                                 .font(.system(size: 19, weight: .medium)).frame(width: 44, height: 44)
-                        }.help(selectedPage).accessibilityLabel("切换页面，当前\(selectedPage)")
+                        }.help((Page(rawValue: selectedPage) ?? .overview).title).accessibilityLabel(L10n.text("切换页面，当前%@", String(describing: (Page(rawValue: selectedPage) ?? .overview).title)))
                         Divider().frame(height: 20).accessibilityHidden(true)
-                        FloatingMenuButton(items: [FloatingMenuItem(title: "全部工具", symbol: nil) {
+                        FloatingMenuButton(items: [FloatingMenuItem(title: L10n.text("全部工具"), symbol: nil) {
                             store.preferences.tool = ""; store.savePreferences()
                         }] + store.tools.map { tool in
                             FloatingMenuItem(title: tool == "codex" ? "Codex" : tool == "claude" ? "Claude" : tool, symbol: nil) {
@@ -171,17 +187,17 @@ struct CompactView: View {
                             }
                         }) {
                             Image(systemName: "brain").font(.system(size: 19, weight: .medium)).frame(width: 44, height: 44)
-                        }.help(store.selectedToolTitle).accessibilityLabel("选择工具，当前\(store.selectedToolTitle)")
+                        }.help(store.selectedToolTitle).accessibilityLabel(L10n.text("选择工具，当前%@", String(describing: store.selectedToolTitle)))
                     }.glassEffect(.regular.interactive(), in: .capsule)
                     Spacer(minLength: 0)
                     Button { store.refresh() } label: {
                         Image(systemName: "arrow.clockwise").font(.system(size: 19, weight: .medium))
                             .frame(width: 44, height: 44)
                     }.buttonStyle(.plain).glassEffect(.regular.interactive(), in: .circle)
-                        .help("刷新").accessibilityLabel("刷新")
+                        .help(L10n.text("刷新")).accessibilityLabel(L10n.text("刷新"))
                     SettingsLink { InterfaceSymbols.gear.frame(width: 44, height: 44) }
                         .buttonStyle(.plain).glassEffect(.regular.interactive(), in: .circle)
-                        .help("设置").accessibilityLabel("设置")
+                        .help(L10n.text("设置")).accessibilityLabel(L10n.text("设置"))
                 }
             }.padding(12)
         }.background(Color(nsColor: .windowBackgroundColor))
@@ -197,7 +213,7 @@ struct OverviewView: View {
     private var sections: [HomeSection] {
         store.preferences.visibleHomeSections.filter {
             switch $0 {
-            case .quota: !store.quotaProviders.isEmpty
+            case .quota: !store.homeQuotaProviders.isEmpty
             case .models: !store.modelRows.isEmpty
             case .devices: !store.devices.isEmpty
             default: true
@@ -206,20 +222,33 @@ struct OverviewView: View {
     }
     var body: some View {
         VStack(alignment: .leading, spacing: 24) {
-            if store.tools.isEmpty {
-                ContentUnavailableView("暂无可用数据来源", systemImage: "tray")
+            if store.tools.isEmpty && store.homeQuotaProviders.isEmpty {
+                ContentUnavailableView(L10n.text("暂无可用数据来源"), systemImage: "tray")
+                    .frame(maxWidth: .infinity)
             } else if sections.isEmpty {
                 ContentUnavailableView {
-                    Label("首页暂无栏目", systemImage: "rectangle.grid.1x2")
-                } actions: { SettingsLink { Text("设置首页栏目…") } }
+                    Label(L10n.text("首页暂无栏目"), systemImage: "rectangle.grid.1x2")
+                } actions: { SettingsLink { Text(L10n.text("布局设置…")) } }
+                    .frame(maxWidth: .infinity)
             } else {
                 ForEach(Array(sections.enumerated()), id: \.element) { index, section in
                     if index > 0 { SectionSeparator() }
                     VStack(alignment: .leading, spacing: 12) {
-                        Button { selectedPage = section.page.rawValue } label: {
-                            HStack { Text(section.title).font(.headline); Spacer(); Image(systemName: section.page.symbol).font(.body).foregroundStyle(.secondary).accessibilityHidden(true) }
-                                .contentShape(Rectangle())
-                        }.buttonStyle(.plain).accessibilityLabel("查看\(section.title)详情")
+                        HStack {
+                            if section == .usage {
+                                Text(section.title).font(.headline)
+                                Spacer()
+                                Image(systemName: "binoculars.fill").font(.body).foregroundStyle(.secondary).accessibilityHidden(true)
+                            } else {
+                                Button { selectedPage = section.page.rawValue } label: {
+                                    Text(section.title).font(.headline)
+                                }.buttonStyle(.plain).accessibilityLabel(L10n.text("查看%@详情", section.title))
+                                Spacer()
+                                Button { selectedPage = section.page.rawValue } label: {
+                                    Image(systemName: section.page.symbol).font(.body).foregroundStyle(store.preferences.accentColor ?? Color.accentColor)
+                                }.buttonStyle(.plain).accessibilityLabel(L10n.text("查看%@详情", section.title))
+                            }
+                        }
                         sectionBody(section)
                     }
                 }
@@ -229,8 +258,10 @@ struct OverviewView: View {
     @ViewBuilder private func sectionBody(_ section: HomeSection) -> some View {
         switch section {
         case .usage: SummaryView(store: store, compact: true)
-        case .quota: QuotaView(store: store, showHeading: false)
-        case .devices: ForEach(store.devices) { DeviceRow(device: $0, store: store, compact: true) }
+        case .quota: QuotaView(store: store, showHeading: false, home: true)
+        case .devices:
+            let fractions = store.deviceUsageFractions
+            ForEach(store.devices) { DeviceRow(device: $0, usageFraction: fractions[$0.id], store: store, compact: true) }
         case .models: ForEach(store.modelRows.prefix(3)) { ModelUsageRow(row: $0) }
         case .activity: ActivityView(store: store, showHeading: false)
         case .trends:
@@ -245,19 +276,21 @@ struct SectionSeparator: View {
 struct QuotaView: View {
     var store: AppStore
     var showHeading = true
+    var home = false
+    private var providers: [QuotaProvider] { home ? store.homeQuotaProviders : store.quotaProviders }
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            if showHeading { HStack { Text("额度").font(.headline); Spacer(); Text("当前状态").font(.caption).foregroundStyle(.secondary) } }
-            ForEach(Array(store.quotaProviders.enumerated()), id: \.offset) { index, provider in
+            if showHeading { HStack { Text(L10n.text("额度")).font(.headline); Spacer(); Text(L10n.text("当前状态")).font(.caption).foregroundStyle(.secondary) } }
+            ForEach(Array(providers.enumerated()), id: \.offset) { index, provider in
                 let stale = provider.isStale(now: store.statusClock, threshold: max(store.stats?.staleAfterMs ?? 600_000, (store.stats?.limits?.refreshMs ?? 300_000) * 2))
                 VStack(alignment: .leading, spacing: 10) {
                     HStack {
                         Text(provider.provider == "codex" ? "Codex" : provider.provider).fontWeight(.medium)
-                        if store.quotaProviders.filter({ $0.provider == provider.provider }).count > 1 { Text("账号 \(index + 1)").foregroundStyle(.secondary) }
+                        if providers.filter({ $0.provider == provider.provider }).count > 1 { Text(L10n.text("账号 %@", String(describing: index + 1))).foregroundStyle(.secondary) }
                         Spacer()
-                        Text(stale ? "数据已过期" : provider.statusTitle).foregroundStyle(.secondary)
+                        Text(stale ? L10n.text("数据已过期") : provider.statusTitle).foregroundStyle(.secondary)
                     }.font(.caption)
-                    ForEach(Array(provider.windows.enumerated()), id: \.offset) { _, window in
+                    ForEach(Array(provider.windows.filter(\.hasReportedQuota).enumerated()), id: \.offset) { _, window in
                         VStack(alignment: .leading, spacing: 5) {
                             HStack(alignment: .firstTextBaseline) {
                                 Text(window.title).lineLimit(2)
@@ -265,16 +298,16 @@ struct QuotaView: View {
                                 Text(window.remainingTitle).monospacedDigit().fixedSize(horizontal: false, vertical: true)
                             }.font(.subheadline)
                             if window.showMeter != false, let percent = window.validPercent {
-                                ProgressView(value: percent, total: 100).accessibilityLabel("\(window.title)，\(window.remainingTitle)")
+                                ProgressView(value: percent, total: 100).accessibilityLabel(L10n.text("%@，%@", window.title, window.remainingTitle))
                             }
                             if let date = DateCodec.parse(window.resetsAt) {
-                                Text(date <= store.statusClock ? "周期已结束 · 等待更新" : "\(window.boundaryKind == "expiry" ? "到期" : "重置")：\(date.formatted(date: .abbreviated, time: .shortened))")
+                                Text(date <= store.statusClock ? L10n.text("周期已结束 · 等待更新") : L10n.text("%@：%@", window.boundaryKind == "expiry" ? L10n.text("到期") : L10n.text("重置"), date.formatted(date: .abbreviated, time: .shortened)))
                                     .font(.caption).foregroundStyle(.secondary)
                             }
                         }
                     }
-                    if provider.windows.isEmpty { Text("没有可显示的额度窗口").font(.caption).foregroundStyle(.secondary) }
-                    if let date = DateCodec.parse(provider.updatedAt) { Text("更新于 \(date.formatted(date: .omitted, time: .shortened))").font(.caption2).foregroundStyle(.secondary) }
+                    if provider.windows.isEmpty { Text(L10n.text("没有可显示的额度窗口")).font(.caption).foregroundStyle(.secondary) }
+                    if let date = DateCodec.parse(provider.updatedAt) { Text(L10n.text("更新于 %@", String(describing: date.formatted(date: .omitted, time: .shortened)))).font(.caption2).foregroundStyle(.secondary) }
                 }
             }
         }
@@ -288,14 +321,14 @@ struct ModelUsageRow: View {
             HStack { Text("\(DisplayFormat.tokens(row.tokens)) tokens"); Spacer(); Text(DisplayFormat.cost(row.cost)) }
                 .font(.caption).foregroundStyle(.secondary).monospacedDigit()
         }.textSelection(.enabled).accessibilityElement(children: .ignore)
-            .accessibilityLabel("\(row.name)，\(DisplayFormat.tokens(row.tokens)) tokens，API 等价估算 \(DisplayFormat.cost(row.cost))")
+            .accessibilityLabel(L10n.text("%@，%@ tokens，API 等价估算 %@", String(describing: row.name), String(describing: DisplayFormat.tokens(row.tokens)), String(describing: DisplayFormat.cost(row.cost))))
     }
 }
 struct ModelSortPicker: View {
     @Bindable var store: AppStore
     var body: some View {
-        Picker("排序", selection: $store.preferences.modelSortByCost) {
-            Text("Token 用量").tag(false); Text("估算费用").tag(true)
+        Picker(L10n.text("排序"), selection: $store.preferences.modelSortByCost) {
+            Text(L10n.text("Token 用量")).tag(false); Text(L10n.text("估算费用")).tag(true)
         }.pickerStyle(.menu).labelsHidden().fixedSize().tint(.primary).accentColor(.primary)
             .onChange(of: store.preferences.modelSortByCost) { store.savePreferences() }
     }
@@ -304,7 +337,7 @@ struct ModelsView: View {
     @Bindable var store: AppStore
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
-            if store.modelRows.isEmpty { Text("尚无模型明细").foregroundStyle(.secondary) }
+            if store.modelRows.isEmpty { Text(L10n.text("尚无模型明细")).foregroundStyle(.secondary) }
             ForEach(store.modelRows) { ModelUsageRow(row: $0) }
         }
     }
@@ -312,10 +345,10 @@ struct ModelsView: View {
 struct HistoryNotice: View {
     var store: AppStore
     var body: some View {
-        if store.historyBusy { ProgressView("读取历史…").controlSize(.small) }
+        if store.historyBusy { ProgressView(L10n.text("读取历史…")).controlSize(.small) }
         if let error = store.historyError {
             Text(error).font(.caption).foregroundStyle(.secondary)
-            Button("重试历史请求") { store.loadHistory() }
+            Button(L10n.text("重试历史请求")) { store.loadHistory() }
         }
     }
 }
@@ -328,7 +361,6 @@ struct HistoryBorder: ViewModifier {
 struct ActivityView: View {
     var store: AppStore
     var showHeading = true
-    @State private var selected: Date?
     @State private var visibleWeeks = 16
     @Environment(\.accessibilityDifferentiateWithoutColor) private var differentiate
     var body: some View {
@@ -336,25 +368,17 @@ struct ActivityView: View {
         let maximum = points.compactMap(\.tokens).max() ?? 0
         let columns = (points.count + 6) / 7
         VStack(alignment: .leading, spacing: 10) {
-            if showHeading || selected != nil {
-                HStack {
-                    if showHeading { Text("活动").font(.headline) }
-                    Spacer()
-                    if let point = points.first(where: { $0.date == selected }) {
-                        Text(description(point)).font(.caption).foregroundStyle(.secondary).lineLimit(1).minimumScaleFactor(0.7)
-                    }
-                }
-            }
-            if points.isEmpty { Text("尚无活动数据").font(.caption).foregroundStyle(.secondary) }
+            if showHeading { Text(L10n.text("活动")).font(.headline) }
+            if points.isEmpty { Text(L10n.text("尚无活动数据")).font(.caption).foregroundStyle(.secondary) }
             else {
                 HistoryScrollView(width: CGFloat(columns * 10 + 29), height: 104,
-                                  resetKey: store.preferences.tool + store.historyPresentationID.uuidString, prepends: true, points: points, tint: store.preferences.accentColor, viewportChanged: { width in
+                                  resetKey: store.preferences.tool + store.historyPresentationID.uuidString, prepends: true, points: points, tint: store.preferences.accentColor, heatmapHover: true, viewportChanged: { width in
                                       let weeks = max(16, Int(ceil((width - 29) / 10)))
                                       if visibleWeeks != weeks { visibleWeeks = weeks }
                                   }) {
                     Canvas { context, _ in
                         for (index, point) in points.enumerated() {
-                            let rect = CGRect(x: 16 + (index / 7) * 10, y: 8 + (index % 7) * 10, width: 7, height: 7)
+                            let rect = HeatmapHitTesting.rect(at: index)
                             context.fill(Path(roundedRect: rect, cornerRadius: 1.5), with: .color(color(point.tokens, maximum: maximum)))
                         }
                         for week in 0..<columns {
@@ -366,16 +390,8 @@ struct ActivityView: View {
                             }
                         }
                     }.frame(width: CGFloat(columns * 10 + 29), height: 104)
-                        .contentShape(Rectangle())
-                        .onContinuousHover { phase in
-                            if case .active(let location) = phase {
-                                let week = Int(floor((location.x - 16) / 10)), day = Int(floor((location.y - 8) / 10))
-                                let index = week * 7 + day
-                                if week >= 0, (0..<7).contains(day), points.indices.contains(index) { selected = points[index].date }
-                            }
-                        }
                         .accessibilityElement(children: .ignore)
-                        .accessibilityLabel("活动热力图，缺失日期无数据")
+                        .accessibilityLabel(L10n.text("活动热力图，缺失日期无数据"))
                         .accessibilityChartDescriptor(TrendAccessibility(points: points, ceiling: max(1, maximum), monthly: false))
                 }.frame(height: 104)
                     .modifier(HistoryBorder())
@@ -386,9 +402,7 @@ struct ActivityView: View {
         guard let value, value > 0, maximum > 0 else { return Color(nsColor: .systemGray).opacity(0.18) }
         return (differentiate ? Color.primary : Color.accentColor).opacity(0.25 + 0.75 * sqrt(value / maximum))
     }
-    private func description(_ point: TrendPoint) -> String {
-        "\(point.date.formatted(date: .abbreviated, time: .omitted)) · \(point.tokens.map { DisplayFormat.tokens($0) + " tokens" } ?? "无数据")"
-    }
+
 }
 struct UsageChart: View {
     let points: [TrendPoint]
@@ -398,7 +412,7 @@ struct UsageChart: View {
     var body: some View {
         if points.contains(where: { $0.tokens != nil }) {
             FixedBarChart(points: points, monthly: monthly, resetKey: resetKey, tint: tint).equatable().padding(10).frame(height: 180).modifier(HistoryBorder())
-        } else { Text("此范围尚无历史数据").font(.caption).foregroundStyle(.secondary) }
+        } else { Text(L10n.text("此范围尚无历史数据")).font(.caption).foregroundStyle(.secondary) }
     }
 }
 struct FixedBarChart: View, Equatable {
@@ -415,7 +429,7 @@ struct FixedBarChart: View, Equatable {
     }
     var body: some View {
         HStack(alignment: .top, spacing: 5) {
-            HistoryScrollView(width: CGFloat(points.count) * slot + 32, height: 160, resetKey: resetKey + (monthly ? "month" : "day"), points: points, tint: tint) {
+            HistoryScrollView(width: CGFloat(points.count) * slot + 32, height: 160, resetKey: resetKey + (monthly ? "month" : "day"), points: points, tint: tint, barHover: .bars(ceiling: ceiling, slot: slot, height: 136)) {
                 VStack(spacing: 4) {
                     bars.frame(height: 136)
                     ZStack(alignment: .topLeading) {
@@ -434,7 +448,7 @@ struct FixedBarChart: View, Equatable {
                 Spacer(minLength: 0)
                 Text("0")
             }.font(.caption2).foregroundStyle(.secondary).frame(width: 38, height: 136, alignment: .leading)
-                .accessibilityLabel("纵轴，零至\(DisplayFormat.tokens(ceiling)) tokens")
+                .accessibilityLabel(L10n.text("纵轴，零至%@ tokens", String(describing: DisplayFormat.tokens(ceiling))))
         }
     }
     private var bars: some View {
@@ -449,15 +463,15 @@ struct FixedBarChart: View, Equatable {
             var bars = Path()
             for (index, point) in points.enumerated() {
                 guard let tokens = point.tokens, tokens > 0 else { continue }
-                let height = CGFloat(min(1, tokens / scale)) * size.height
-                bars.addRoundedRect(in: CGRect(x: CGFloat(index) * slot + 1, y: size.height - height,
-                                               width: 5, height: height),
-                                    cornerSize: CGSize(width: min(2.5, height / 2), height: min(2.5, height / 2)))
+                let geometry = ChartHoverGeometry.bars(ceiling: scale, slot: slot, height: size.height)
+                let rect = geometry.rect(at: index, points: points).offsetBy(dx: -16, dy: 0)
+                let radius = geometry.cornerRadius(for: rect)
+                bars.addRoundedRect(in: rect, cornerSize: CGSize(width: radius, height: radius))
             }
             context.fill(bars, with: .color(.accentColor))
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(monthly ? "每月 Token 用量" : "每日 Token 用量")
+        .accessibilityLabel(monthly ? L10n.text("每月 Token 用量") : L10n.text("每日 Token 用量"))
         .accessibilityChartDescriptor(TrendAccessibility(points: points, ceiling: ceiling, monthly: monthly))
     }
 }
@@ -466,7 +480,7 @@ struct TrendAccessibility: AXChartDescriptorRepresentable {
     let ceiling: Double
     let monthly: Bool
     func makeChartDescriptor() -> AXChartDescriptor {
-        let x = AXNumericDataAxisDescriptor(title: "日期", range: 0...Double(max(1, points.count - 1)), gridlinePositions: []) { value in
+        let x = AXNumericDataAxisDescriptor(title: L10n.text("日期"), range: 0...Double(max(1, points.count - 1)), gridlinePositions: []) { value in
             let index = min(max(0, Int(value)), max(0, points.count - 1))
             return points.indices.contains(index) ? points[index].date.formatted(date: .abbreviated, time: .omitted) : ""
         }
@@ -477,7 +491,7 @@ struct TrendAccessibility: AXChartDescriptorRepresentable {
             guard let tokens = point.tokens else { return nil }
             return AXDataPoint(x: Double(index), y: tokens, label: point.date.formatted(date: .abbreviated, time: .omitted))
         }
-        return AXChartDescriptor(title: monthly ? "每月 Token 用量" : "每日 Token 用量", summary: "缺失日期保留为空白，零值为已报告的零用量。",
+        return AXChartDescriptor(title: monthly ? L10n.text("每月 Token 用量") : L10n.text("每日 Token 用量"), summary: L10n.text("缺失日期保留为空白，零值为已报告的零用量。"),
                                  xAxis: x, yAxis: y, series: [AXDataSeriesDescriptor(name: "Token", isContinuous: false, dataPoints: values)])
     }
     func updateChartDescriptor(_ descriptor: AXChartDescriptor) {
@@ -495,7 +509,7 @@ struct TrendsView: View {
             let points = store.historyPoints()
             UsageChart(points: points, monthly: false, resetKey: store.preferences.tool + store.historyPresentationID.uuidString, tint: store.preferences.accentColor)
             ForEach(points.reversed()) { point in
-                HStack { Text(point.date, format: .dateTime.month().day()); Spacer(); Text(point.tokens.map { DisplayFormat.tokens($0) } ?? "无数据").monospacedDigit() }.font(.caption)
+                HStack { Text(point.date, format: .dateTime.month().day()); Spacer(); Text(point.tokens.map { DisplayFormat.tokens($0) } ?? L10n.text("无数据")).monospacedDigit() }.font(.caption)
             }
         }
     }
