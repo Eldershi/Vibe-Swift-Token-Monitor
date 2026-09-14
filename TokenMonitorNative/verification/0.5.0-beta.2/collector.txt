@@ -1,1 +1,0 @@
-PASS: bundled parser, token partitions, deterministic cost, restart, month boundary, daily history, append, truncate, rotation, zero usage and read-only sources

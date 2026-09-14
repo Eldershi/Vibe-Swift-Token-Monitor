@@ -1,5 +1,0 @@
-FULL PANEL: 1095 daily records; width 320…1920; toolbar, glass, ticker, snapshot acceptance enabled
-FULL PANEL resize synchronous main work (pacing excluded): n=120 median=18.93 ms p95=32.02 ms max=41.28 ms
-FULL PANEL period synchronous main work (pacing excluded): n=60 median=13.20 ms p95=17.79 ms max=18.23 ms
-FULL PANEL snapshot synchronous main work (pacing excluded): n=6 median=15.96 ms p95=17.27 ms max=17.27 ms
-FULL PANEL resize scheduling delay beyond requested 16 ms pacing: median=4.32 ms p95=11.28 ms max=12.98 ms (not FPS)

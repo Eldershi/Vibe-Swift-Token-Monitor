@@ -61,3 +61,16 @@ health.json
 # Bundled beta runtime downloads and npm installation
 node_modules/
 TokenMonitorNative/Backend/runtime/
+
+# Local development instructions, plans and acceptance history
+/AGENTS.md
+/MAINTENANCE.md
+/ROADMAP.md
+/docs/CURRENT_ISSUES.md
+/TokenMonitorNative/AGENTS.md
+/TokenMonitorNative/README.md
+/TokenMonitorNative/BETA.md
+/TokenMonitorNative/UPDATES.md
+/TokenMonitorNative/verification/
+/TokenMonitorNative/下一版改进清单.md
+/TokenMonitorNative/验收记录.md

@@ -1,7 +1,0 @@
-PASS: service uses bundled Node, private authenticated loopback endpoint
-PASS: singleton helper lock
-PASS: crash recovery, credential rotation, persisted pause
-PASS: resume and new successful collection
-PASS: explicit service restart
-Status: {"version": "0.5.0-beta.2", "paused": false, "lastSuccess": "2026-09-13T14:28:48.084Z", "failure": null}
-PASS: UI closed; fresh Hub round completed with same daemon PID; duration ms: 1772
