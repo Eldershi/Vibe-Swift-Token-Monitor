@@ -1,6 +1,6 @@
-# 0.5.1 安装与后台管理（构建 33）
+# 0.5.2 安装与后台管理（构建 35）
 
-独立安装 `Token Monitor Native Beta 0.5.1 (33).app`，面向 Apple Silicon，最低 macOS 26；实际验收系统及限制见下方验收记录。Bundle ID 为 `local.tokenmonitor.native.beta`；菜单栏数字后的 `β` 用于区分旧 0.4.1 客户端，不代表当前 Release 是预发行版。无需运行原 Electron 应用，也无需自行安装 Node.js。
+独立安装 `Token Monitor Native Beta 0.5.2 (35).app`，面向 Apple Silicon，最低 macOS 26；实际验收系统及限制见下方验收记录。Bundle ID 为 `local.tokenmonitor.native.beta`；菜单栏数字后的 `β` 用于区分旧 0.4.1 客户端，当前为正式版本；Beta/β 是保留的兼容通道标识。无需运行原 Electron 应用，也无需自行安装 Node.js。
 
 ## 数据与后台
 
@@ -28,7 +28,7 @@ bash scripts/install-beta.sh
 
 首次准备需要网络和开发机的 npm。Node 24.19.0 官方归档与固定 Tokscale fork 均校验 SHA-256；npm 依赖由 lockfile 固定。运行时完全内置，安装后不依赖 npm、系统 Node 或原应用的文件。
 
-产物为 `dist/Token-Monitor-Native-0.5.1-arm64.zip`。当前使用 ad-hoc 签名，未公证、未配置在线更新。最低系统及实际人工验收限制见[0.5.1 发布记录](verification/0.5.1/发布记录.md)。
+产物为 `dist/Token-Monitor-Native-0.5.2-35-arm64.zip`。当前使用 ad-hoc 签名，未公证、支持 GitHub 正式版本检查与确认安装；发布时需同时上传签名 appcast.xml（见 UPDATES.md）。最低系统及实际人工验收限制见[0.5.2 验收记录](verification/0.5.2/发布记录.md)。
 
 从 Release 下载后解压并复制到 `~/Applications/`（已有同名应用时先退出界面、保留旧副本）；也可使用源码安装脚本自动保留回退副本。源码安装脚本使用带版本和构建号的文件名，保留 beta 的 Bundle ID、数据目录与服务身份；包名改变不新建数据目录。Release 解压名称可能仍为 `Token Monitor Native Beta.app`，手动安装时可加版本和构建号。
 
@@ -47,7 +47,7 @@ Backend/runtime/node --test Backend/tests/*.test.cjs
 
 ```sh
 python3 scripts/test-beta-logs.py
-python3 scripts/test-beta-logs.py --app "$HOME/Applications/Token Monitor Native Beta 0.5.1 (33).app"
+python3 scripts/test-beta-logs.py --app "$HOME/Applications/Token Monitor Native Beta 0.5.2 (35).app"
 python3 scripts/verify-beta-service.py
 ```
 

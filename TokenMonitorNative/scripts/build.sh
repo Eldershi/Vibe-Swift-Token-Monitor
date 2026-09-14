@@ -28,7 +28,9 @@ ditto "$BIN/TokenMonitorNative_TokenMonitorNative.bundle" "$APP/Contents/Resourc
 ditto "$BIN/TokenMonitorNative_MonitorCore.bundle" "$APP/Contents/Resources/TokenMonitorNative_MonitorCore.bundle"
 cp -R "$ROOT/Resources/en.lproj" "$ROOT/Resources/zh-Hans.lproj" "$APP/Contents/Resources/"
 # Local ad-hoc signature. Supply SIGNING_IDENTITY later for a stable signing certificate.
+python3 "$ROOT/scripts/compile-app-icon.py" --app "$APP"
 xattr -cr "$APP"
+bash "$ROOT/scripts/embed-sparkle.sh" "$APP" "$ROOT/.build/artifacts/sparkle/Sparkle"
 codesign --force --sign "${SIGNING_IDENTITY:--}" --identifier local.tokenmonitor.native "$APP"
 codesign --verify --strict "$APP"
 "$APP/Contents/MacOS/TokenMonitorNative" --smoke-test

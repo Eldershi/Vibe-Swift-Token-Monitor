@@ -17,6 +17,13 @@ extension ThemeColor {
     }
 }
 extension HomeSection {
+    var symbol: String {
+        switch self {
+        case .activity: "calendar"
+        case .trends: "chart.xyaxis.line"
+        default: page.symbol
+        }
+    }
     var page: Page {
         switch self {
         case .usage: .overview
@@ -24,7 +31,7 @@ extension HomeSection {
         case .devices: .devices
         case .models: .models
         case .activity: .activity
-        case .trends: .trends
+        case .trends: .activity
         }
     }
 }
@@ -82,11 +89,13 @@ struct HomeLayoutSettings: View {
                     }
                     .contentShape(Rectangle())
                 }
+                Text(L10n.text("用开关控制可见性，按住右侧手柄上下拖动排序。隐藏首页栏目不会删除统计数据，仍可通过页面菜单查看详情。"))
+                    .font(.caption).foregroundStyle(.secondary)
             }
+            Section(L10n.text("额度")) { HomeQuotaSettings(store: store) }
             Section(L10n.text("设备")) {
                 Toggle(L10n.text("首页显示设备用量条"), isOn: $store.preferences.showHomeDeviceUsageBars)
             }
-            HomeQuotaSettings(store: store)
             Section {
                 Button(L10n.text("恢复默认布局")) {
                     store.preferences.homeSections = HomeSection.allCases
@@ -94,8 +103,6 @@ struct HomeLayoutSettings: View {
                     store.preferences.homeQuotaSelection = nil
                     store.preferences.showHomeDeviceUsageBars = false
                 }
-                Text(L10n.text("用开关控制可见性，按住右侧手柄上下拖动排序。隐藏首页栏目不会删除统计数据，仍可通过页面菜单查看详情。"))
-                    .font(.caption).foregroundStyle(.secondary)
             }
         }.formStyle(.grouped)
     }
@@ -103,7 +110,7 @@ struct HomeLayoutSettings: View {
 struct HomeQuotaSettings: View {
     @Bindable var store: AppStore
     var body: some View {
-        Section(L10n.text("首页额度")) {
+        Group {
             Toggle(L10n.text("自定义首页额度"), isOn: Binding(
                 get: { store.preferences.homeQuotaSelection != nil },
                 set: { enabled in
@@ -207,15 +214,14 @@ struct ActivityDetailView: View {
     var store: AppStore
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
+            Text(L10n.text("热力图")).font(.subheadline.weight(.semibold))
             ActivityView(store: store, showHeading: false)
+            Text(L10n.text("趋势")).font(.subheadline.weight(.semibold))
+            UsageChart(points: store.historyPoints(), monthly: false,
+                       resetKey: store.preferences.tool + store.historyPresentationID.uuidString,
+                       tint: store.preferences.accentColor)
             HistoryNotice(store: store)
-            ForEach((store.historyPoints()).reversed()) { point in
-                HStack {
-                    Text(point.date, format: .dateTime.year().month().day())
-                    Spacer()
-                    Text(point.tokens.map { DisplayFormat.tokens($0) + " tokens" } ?? L10n.text("无数据")).monospacedDigit()
-                }.font(.caption).textSelection(.enabled)
-            }
+            ActivityRecordsView(store: store)
         }
     }
 }

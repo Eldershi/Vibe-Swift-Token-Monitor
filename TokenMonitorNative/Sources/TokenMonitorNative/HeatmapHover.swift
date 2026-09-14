@@ -24,8 +24,7 @@ enum HeatmapHitTesting {
     }
 }
 
-/// Bar hit regions include the height above each bar so zero and missing days
-/// remain discoverable, but exclude the inter-column gap and axis labels.
+/// Hit testing shares the exact rendered capsule; absent bars remain AX-only.
 enum ChartHoverGeometry: Equatable {
     case heatmap
     case bars(ceiling: Double, slot: CGFloat, height: CGFloat)
@@ -43,7 +42,10 @@ enum ChartHoverGeometry: Equatable {
             let index = Int((point.x - 16) / slot)
             guard points.indices.contains(index), point.x >= 17 + CGFloat(index) * slot,
                   point.x < 22 + CGFloat(index) * slot else { return nil }
-            return index
+            guard let value = points[index].tokens, value.isFinite, value > 0 else { return nil }
+            let bar = rect(at: index, points: points)
+            let radius = cornerRadius(for: bar)
+            return NSBezierPath(roundedRect: bar, xRadius: radius, yRadius: radius).contains(point) ? index : nil
         }
     }
     func rect(at index: Int, points: [TrendPoint]) -> NSRect {
@@ -51,7 +53,7 @@ enum ChartHoverGeometry: Equatable {
         case .heatmap: return HeatmapHitTesting.rect(at: index)
         case let .bars(ceiling, slot, height):
             let value = points[index].tokens ?? 0
-            let barHeight = value.isFinite && value > 0 && ceiling > 0 ? CGFloat(min(1, value / ceiling)) * height : 1
+            let barHeight = value.isFinite && value > 0 && ceiling > 0 ? CGFloat(min(1, value / ceiling)) * height : 0
             return NSRect(x: 17 + CGFloat(index) * slot, y: height - barHeight, width: 5, height: barHeight)
         }
     }
@@ -114,6 +116,7 @@ enum ChartHoverGeometry: Equatable {
     override func hitTest(_ point: NSPoint) -> NSView? { nil }
     override init(frame: NSRect) {
         super.init(frame: frame)
+        wantsLayer = true
         setAccessibilityElement(false)
         let center = NotificationCenter.default
         center.addObserver(self, selector: #selector(scrollChanged(_:)), name: NSView.boundsDidChangeNotification, object: nil)
@@ -159,6 +162,7 @@ enum ChartHoverGeometry: Equatable {
     }
     func show(at location: NSPoint) {
         guard isVisiblePoint(location), let window,
+              !ChartInteractionShield.blocks(location, from: self),
               let index = geometry.index(at: location, points: points) else { clear(); return }
         let changed = selectedIndex != index
         selectedIndex = index
@@ -189,6 +193,20 @@ enum ChartHoverGeometry: Equatable {
         if selectedIndex != nil { selectedIndex = nil; needsDisplay = true }
         tooltip?.removeFromSuperview()
     }
+    static func barStrokeColor(accent: NSColor, appearance: NSAppearance) -> NSColor {
+        var result = accent
+        appearance.performAsCurrentDrawingAppearance {
+            let dark = appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+            if let rgb = accent.usingColorSpace(.sRGB) {
+                let amount = dark ? 0.45 : 0.30
+                let target = dark ? 1.0 : 0.0
+                result = NSColor(srgbRed: rgb.redComponent * (1 - amount) + target * amount,
+                                 green: rgb.greenComponent * (1 - amount) + target * amount,
+                                 blue: rgb.blueComponent * (1 - amount) + target * amount, alpha: 1)
+            }
+        }
+        return result
+    }
     override func draw(_ dirtyRect: NSRect) {
         guard let selectedIndex else { return }
         let rect = geometry.rect(at: selectedIndex, points: points)
@@ -198,14 +216,27 @@ enum ChartHoverGeometry: Equatable {
         let insetRadius = max(0, radius - lineWidth / 2)
         let path = NSBezierPath(roundedRect: rect.insetBy(dx: lineWidth / 2, dy: lineWidth / 2), xRadius: insetRadius, yRadius: insetRadius)
         NSGraphicsContext.saveGraphicsState()
-        // Use the app theme, or the dynamic system accent, in both appearances.
-        let shadow = NSShadow()
-        shadow.shadowColor = emphasisColor.withAlphaComponent(contrast ? 0.28 : 0.16)
-        shadow.shadowBlurRadius = 2; shadow.shadowOffset = .zero; shadow.set()
-        emphasisColor.withAlphaComponent(contrast ? 1 : 0.8).setStroke()
-        path.lineWidth = lineWidth; path.stroke()
-        NSGraphicsContext.restoreGraphicsState()
-        emphasisColor.withAlphaComponent(0.1).setFill()
-        NSBezierPath(roundedRect: rect, xRadius: radius, yRadius: radius).fill()
+        defer { NSGraphicsContext.restoreGraphicsState() }
+        let outline = NSBezierPath(roundedRect: rect, xRadius: radius, yRadius: radius)
+        if case .bars = geometry {
+            // Keep every highlight pixel inside the same capsule as the Canvas.
+            outline.addClip()
+            emphasisColor.withAlphaComponent(0.1).setFill(); outline.fill()
+            let stroke = Self.barStrokeColor(accent: emphasisColor, appearance: effectiveAppearance)
+            if rect.height <= lineWidth {
+                // The inner stroke covers the whole sub-point capsule; avoid a zero-height path.
+                stroke.setFill(); outline.fill()
+            } else {
+                stroke.setStroke(); path.lineWidth = lineWidth; path.stroke()
+            }
+        } else {
+            let shadow = NSShadow()
+            shadow.shadowColor = emphasisColor.withAlphaComponent(contrast ? 0.28 : 0.16)
+            shadow.shadowBlurRadius = 2; shadow.shadowOffset = .zero; shadow.set()
+            emphasisColor.withAlphaComponent(contrast ? 1 : 0.8).setStroke()
+            path.lineWidth = lineWidth; path.stroke()
+            shadow.shadowColor = .clear; shadow.set()
+            emphasisColor.withAlphaComponent(0.1).setFill(); outline.fill()
+        }
     }
 }

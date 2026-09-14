@@ -83,16 +83,23 @@ final class DeviceUsageComparisonTests: XCTestCase {
         overlay.points = []
         XCTAssertNil(overlay.selectedIndex)
     }
-    func testBarHitRegionsKeepZeroAndMissingDaysQueryable() {
+    func testBarHitRegionsExcludeBlankZeroMissingAndCapsuleCorners() {
         let points = [100.0, 50, 0, nil].enumerated().map { TrendPoint(date: Date(timeIntervalSince1970: Double($0.offset) * 86400), tokens: $0.element, cost: nil) }
         let geometry = ChartHoverGeometry.bars(ceiling: 100, slot: 7, height: 136)
-        for index in points.indices {
-            XCTAssertEqual(geometry.index(at: NSPoint(x: 19 + index * 7, y: 20), points: points), index)
+        XCTAssertEqual(geometry.index(at: NSPoint(x: 19, y: 20), points: points), 0)
+        XCTAssertNil(geometry.index(at: NSPoint(x: 26, y: 20), points: points))
+        XCTAssertEqual(geometry.index(at: NSPoint(x: 26, y: 100), points: points), 1)
+        for index in [2, 3] {
+            for y in [0.0, 20, 100, 135] {
+                XCTAssertNil(geometry.index(at: NSPoint(x: CGFloat(19 + index * 7), y: y), points: points))
+            }
         }
+        XCTAssertNil(geometry.index(at: NSPoint(x: 24.1, y: 68.1), points: points))
+        XCTAssertEqual(geometry.index(at: NSPoint(x: 26.5, y: 68.1), points: points), 1)
         XCTAssertNil(geometry.index(at: NSPoint(x: 22.5, y: 20), points: points))
         XCTAssertNil(geometry.index(at: NSPoint(x: 19, y: 145), points: points))
         XCTAssertEqual(geometry.rect(at: 1, points: points).height, 68)
-        XCTAssertEqual(geometry.rect(at: 2, points: points).height, 1)
+        XCTAssertEqual(geometry.rect(at: 2, points: points).height, 0)
     }
     func testBarTooltipAnchorsToBarWithoutCreatingPopupWindow() throws {
         let view = HistoryNativeScroll(content: AnyView(Color.clear))
@@ -104,7 +111,7 @@ final class DeviceUsageComparisonTests: XCTestCase {
         window.orderFront(nil); view.layout()
         defer { view.heatmapOverlay?.clear(); window.orderOut(nil) }
         let overlay = try XCTUnwrap(view.heatmapOverlay)
-        overlay.show(at: NSPoint(x: 26, y: 40))
+        overlay.show(at: NSPoint(x: 26, y: 80))
         let panel = try XCTUnwrap(overlay.tooltip)
         let frame = panel.frame
         XCTAssertGreaterThan(frame.width, 0); XCTAssertGreaterThan(frame.height, 0)

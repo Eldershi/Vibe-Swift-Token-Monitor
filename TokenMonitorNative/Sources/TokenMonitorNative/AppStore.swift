@@ -31,6 +31,7 @@ import MonitorCore
     private func nextPersistenceRevision() -> UInt64 { persistenceRevision += 1; return persistenceRevision }
     @ObservationIgnored private let writer = PersistenceWriter()
 
+    var activityExpansion = ActivityExpansion()
     var historyBusy = false
     var needsSetup = false
     var preferencesError: String?
@@ -51,7 +52,7 @@ import MonitorCore
 
     init(ephemeral override: Bool? = nil, makeClient: @escaping (HubConnection) -> HubClient = { HubClient(connection: $0) }, pause: @escaping (Double) async throws -> Void = { try await Task.sleep(for: .seconds($0)) }) {
         self.makeClient = makeClient; self.pause = pause
-        ephemeral = override ?? (ProcessInfo.processInfo.arguments.contains("--smoke-test") || ProcessInfo.processInfo.arguments.contains("--verify-localization") || ProcessInfo.processInfo.arguments.contains("--preview-fixture") || ProcessInfo.processInfo.arguments.contains(where: { $0.hasPrefix("--beta-") }))
+        ephemeral = override ?? (ProcessInfo.processInfo.arguments.contains("--verify-period-animation") || ProcessInfo.processInfo.arguments.contains("--smoke-test") || ProcessInfo.processInfo.arguments.contains("--verify-localization") || ProcessInfo.processInfo.arguments.contains("--preview-fixture") || ProcessInfo.processInfo.arguments.contains(where: { $0.hasPrefix("--beta-") }))
         preferences.selectionChanged = { [weak self] in self?.preparePresentation() }
         if ephemeral { return }
         do { preferences = RuntimePreferences(try file.load()) }

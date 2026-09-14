@@ -103,4 +103,13 @@ import XCTest
         XCTAssertEqual(s.tools, ["claude", "codex"])
     }
 
+    func testCancelledClientRejectsLateDataAndStreamRequests() async throws {
+        let client = HubClient(connection: try connection(), protocolClasses: [MockURLProtocol.self])
+        client.cancel(); client.cancel()
+        do { _ = try await client.data("api/stats"); XCTFail("Closed client accepted data request") }
+        catch { XCTAssertTrue(error is CancellationError) }
+        do { for try await _ in client.stream() { XCTFail("Closed client yielded a snapshot") }; XCTFail("Closed stream completed without cancellation") }
+        catch { XCTAssertTrue(error is CancellationError) }
+    }
+
 }

@@ -1,0 +1,164 @@
+{
+  "features" : [
+    "refractivity",
+    "specular-location"
+  ],
+  "fill" : {
+    "linear-gradient" : [
+      "display-p3:0.05402,0.11982,0.19035,1.00000",
+      "srgb:0.00000,0.00000,0.00000,1.00000"
+    ]
+  },
+  "groups" : [
+    {
+      "blur-material" : 0,
+      "layers" : [
+        {
+          "fill" : {
+            "automatic-gradient" : "srgb:0.88717,0.93948,0.94390,1.00000"
+          },
+          "image-name" : "Regular-S (2).svg",
+          "name" : "Regular-S (2)",
+          "position-specializations" : [
+            {
+              "idiom" : "square",
+              "value" : {
+                "scale" : 7.71,
+                "translation-in-points" : [
+                  0,
+                  -21
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "refractivity" : {
+        "depth" : 0.0223828125,
+        "enabled" : true,
+        "strength" : 0.074609375
+      },
+      "shadow" : {
+        "kind" : "neutral",
+        "opacity" : 2.96
+      },
+      "specular" : "inside",
+      "translucency" : {
+        "enabled" : true,
+        "value" : 0.62
+      }
+    },
+    {
+      "blur-material" : 0.03,
+      "layers" : [
+        {
+          "fill" : {
+            "solid" : "extended-gray:0.00000,1.00000"
+          },
+          "image-name" : "Regular-S (3).svg",
+          "name" : "Regular-S (3)",
+          "position-specializations" : [
+            {
+              "idiom" : "square",
+              "value" : {
+                "scale" : 7.71,
+                "translation-in-points" : [
+                  0,
+                  -21
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "refractivity" : {
+        "depth" : 0.018359375,
+        "enabled" : true,
+        "strength" : 0.1325
+      },
+      "shadow" : {
+        "kind" : "neutral",
+        "opacity" : 2.96
+      },
+      "specular" : "inside",
+      "translucency" : {
+        "enabled" : true,
+        "value" : 0.49
+      }
+    },
+    {
+      "layers" : [
+        {
+          "fill" : {
+            "solid" : "extended-gray:1.00000,1.00000"
+          },
+          "glass" : true,
+          "image-name" : "资源 4.svg",
+          "name" : "资源 4",
+          "opacity" : 0.3,
+          "position-specializations" : [
+            {
+              "idiom" : "square",
+              "value" : {
+                "scale" : 4.02,
+                "translation-in-points" : [
+                  0,
+                  0
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "opacity" : 0.3,
+      "shadow" : {
+        "kind" : "neutral",
+        "opacity" : 0.6
+      },
+      "translucency" : {
+        "enabled" : true,
+        "value" : 0.2
+      }
+    },
+    {
+      "layers" : [
+        {
+          "fill" : {
+            "solid" : "extended-gray:1.00000,1.00000"
+          },
+          "glass" : false,
+          "image-name" : "资源 4.svg",
+          "name" : "资源 4",
+          "opacity" : 0.3,
+          "position-specializations" : [
+            {
+              "idiom" : "square",
+              "value" : {
+                "scale" : 4.02,
+                "translation-in-points" : [
+                  0,
+                  0
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "opacity" : 0.35,
+      "shadow" : {
+        "kind" : "neutral",
+        "opacity" : 0.6
+      },
+      "translucency" : {
+        "enabled" : true,
+        "value" : 0.2
+      }
+    }
+  ],
+  "supported-platforms" : {
+    "circles" : [
+      "watchOS"
+    ],
+    "squares" : "shared"
+  }
+}

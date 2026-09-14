@@ -55,11 +55,6 @@ enum Keychain {
     }
 }
 
-protocol UpdateService { var description: String { get }; var canCheck: Bool { get } }
-struct LocalUpdateService: UpdateService {
-    let canCheck = false
-    var description: String { L10n.text("本地构建 · 尚未配置在线更新源") }
-}
 enum Backend {
     @MainActor static func open() {
         guard !Identity.isBeta else { return }

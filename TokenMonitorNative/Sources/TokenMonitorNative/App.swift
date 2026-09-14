@@ -36,6 +36,22 @@ import ServiceManagement
     private var observers: [NSObjectProtocol] = []
     func applicationDidFinishLaunching(_ notification: Notification) {
         let args = ProcessInfo.processInfo.arguments
+        if args.contains("--verify-update-check") {
+            Task { @MainActor in
+                do {
+                    try GitHubUpdater.verifyConfiguration()
+                    let release = try await GitHubReleaseClient.latest(using: URLSession(configuration: .ephemeral))
+                    print("GitHub update check: latest=\(release.tag_name), newer=\(release.isNewer(than: Identity.version)), signed-feed=\(release.appcastURL != nil)")
+                    exit(0)
+                } catch { fputs("GitHub update check failed.\n", stderr); exit(1) }
+            }
+            return
+        }
+        if args.contains("--verify-period-animation") {
+            do { try PeriodAnimationVerification.start(arguments: args) }
+            catch { fputs("Period comparison failed: \(error.localizedDescription)\n", stderr); exit(1) }
+            return
+        }
         if let index = args.firstIndex(of: "--verify-localization"), args.count > index + 1 {
             let expected = args[index + 1]
             let labels = [L10n.text("通用"), L10n.text("布局"), L10n.text("数据"), L10n.text("关于")]
@@ -88,6 +104,7 @@ import ServiceManagement
             Task { @MainActor in await ResizeVerification.run(store: AppStore.shared) }; return
         }
         AppStore.shared.start()
+        GitHubUpdater.shared.setAutomaticChecks(AppStore.shared.preferences.automaticallyCheckForUpdates)
         if AppStore.shared.preferences.showPanelOnLaunch || AppStore.shared.needsSetup { PanelController.shared.show() }
         if args.contains("--preview-fixture"), args.contains("--preview-wide") {
             PanelController.shared.show()
@@ -108,10 +125,14 @@ import ServiceManagement
         let saving = AppStore.shared.saveForTermination()
         Task.detached {
             await saving.value
+            let canTerminate = await GitHubUpdater.shared.prepareForTermination()
             // terminate() may be inside a main-actor task's nested AppKit event loop.
             // A run-loop callback can reply without waiting for that task to return.
             RunLoop.main.perform(inModes: [.common, .modalPanel]) {
-                MainActor.assumeIsolated { sender.reply(toApplicationShouldTerminate: true) }
+                MainActor.assumeIsolated {
+                    if !canTerminate { AppStore.shared.start() }
+                    sender.reply(toApplicationShouldTerminate: canTerminate)
+                }
             }
             CFRunLoopWakeUp(CFRunLoopGetMain())
         }
@@ -123,6 +144,10 @@ import ServiceManagement
 @MainActor final class PanelController: NSObject, NSToolbarDelegate {
     static let shared = PanelController()
     private var panel: NSPanel?
+    var periodDiagnostic: ((Int) -> Void)?
+    var verificationPeriodItem: NSToolbarItem? {
+        panel?.toolbar?.items.first(where: { $0.itemIdentifier == periodID })
+    }
     var verificationWindow: NSPanel { panel! }
     func verificationSelectPeriod(_ index: Int) {
         guard let item = panel?.toolbar?.items.first(where: { $0.itemIdentifier == periodID }) as? NSToolbarItemGroup else { return }
@@ -148,7 +173,7 @@ import ServiceManagement
             host.sizingOptions = []
             p.contentView = host
             p.installSizeConstraints()
-            p.center(); if !ProcessInfo.processInfo.arguments.contains("--benchmark-resize"), !ProcessInfo.processInfo.arguments.contains("--preview-fixture") { p.setFrameAutosaveName("NativeCompactWindow") }
+            p.center(); if !ProcessInfo.processInfo.arguments.contains("--verify-period-animation"), !ProcessInfo.processInfo.arguments.contains("--benchmark-resize"), !ProcessInfo.processInfo.arguments.contains("--preview-fixture") { p.setFrameAutosaveName("NativeCompactWindow") }
             p.installSizeConstraints() // Recheck after restoring an older saved frame.
             panel = p
         }
@@ -160,6 +185,20 @@ import ServiceManagement
     func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] { [.flexibleSpace, periodID] }
     func toolbar(_ toolbar: NSToolbar, itemForItemIdentifier id: NSToolbarItem.Identifier, willBeInsertedIntoToolbar flag: Bool) -> NSToolbarItem? {
         guard id == periodID else { return nil }
+        if ProcessInfo.processInfo.arguments.contains("--verify-period-animation"),
+           ProcessInfo.processInfo.arguments.contains("--period-rounded") {
+            let control = NSSegmentedControl(labels: Period.allCases.map(\.title), trackingMode: .selectOne,
+                                             target: self, action: #selector(selectRoundedPeriod(_:)))
+            control.segmentStyle = .rounded
+            if #available(macOS 27.0, *) { control.role = .valueSelection }
+            control.selectedSegment = Period.allCases.firstIndex(of: AppStore.shared.preferences.period) ?? 1
+            control.setAccessibilityLabel(L10n.text("时间范围"))
+            control.sizeToFit()
+            let item = NSToolbarItem(itemIdentifier: id)
+            item.label = ""; item.toolTip = L10n.text("时间范围")
+            item.view = control
+            return item
+        }
         let item = NSToolbarItemGroup(itemIdentifier: id, titles: Period.allCases.map(\.title), selectionMode: .selectOne, labels: nil, target: self, action: #selector(selectPeriod(_:)))
         item.controlRepresentation = .expanded
         item.selectedIndex = Period.allCases.firstIndex(of: AppStore.shared.preferences.period) ?? 1
@@ -168,8 +207,13 @@ import ServiceManagement
     }
     @objc private func selectPeriod(_ sender: NSToolbarItemGroup) {
         guard Period.allCases.indices.contains(sender.selectedIndex) else { return }
+        if let periodDiagnostic { periodDiagnostic(sender.selectedIndex); return }
         AppStore.shared.preferences.period = Period.allCases[sender.selectedIndex]
         AppStore.shared.savePreferences()
+    }
+    @objc private func selectRoundedPeriod(_ sender: NSSegmentedControl) {
+        guard Period.allCases.indices.contains(sender.selectedSegment) else { return }
+        periodDiagnostic?(sender.selectedSegment)
     }
     func updatePin() { panel?.level = AppStore.shared.preferences.pinned ? .floating : .normal }
 }

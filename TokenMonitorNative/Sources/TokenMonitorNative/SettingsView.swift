@@ -10,7 +10,6 @@ struct SettingsView: View {
     @State private var message: String?
     @State private var validated: (HubConnection, Health, Stats)?
     @State private var saved = false
-    private let updates: any UpdateService = LocalUpdateService()
     var body: some View {
         TabView {
             Tab {
@@ -69,10 +68,9 @@ struct SettingsView: View {
                     Section(Identity.name) {
                         LabeledContent(L10n.text("版本"), value: Identity.version)
                         LabeledContent(L10n.text("构建号"), value: Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? L10n.text("开发构建"))
-                        LabeledContent(L10n.text("更新方式"), value: updates.description)
                         Link("Icons by Icons8", destination: URL(string: "https://icons8.com")!)
-                        Text(L10n.text("通过随附安装脚本升级，可恢复上一版本。未来可接入独立签名更新源；当前未配置在线更新。")).font(.caption).foregroundStyle(.secondary)
                     }
+                    UpdateSettings(store: store)
                     Section(L10n.text("Hub 兼容性")) {
                         LabeledContent(L10n.text("连接状态"), value: store.connectionDisplayStatus)
                         LabeledContent(L10n.text("接口基线"), value: "Token Monitor v0.56.0")

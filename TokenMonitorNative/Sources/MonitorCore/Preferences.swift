@@ -7,6 +7,7 @@ public struct Preferences: Codable, Equatable, Sendable {
     public var tool = "codex"
     public var period = Period.month
     public var pinned = false
+    public var automaticallyCheckForUpdates = false
     public var showPanelOnLaunch = true
     public var modelSortByCost = false
     public var homeSections = HomeSection.allCases
@@ -31,11 +32,12 @@ public struct Preferences: Codable, Equatable, Sendable {
         homeSections.insert(section, at: to)
     }
     public init() {}
-    enum CodingKeys: String, CodingKey { case schemaVersion, hubAddress, connected, tool, period, pinned, showPanelOnLaunch, modelSortByCost, homeSections, hiddenHomeSections, showHomeDeviceUsageBars, homeQuotaSelection, themeColor, customThemeColor }
+    enum CodingKeys: String, CodingKey { case automaticallyCheckForUpdates, schemaVersion, hubAddress, connected, tool, period, pinned, showPanelOnLaunch, modelSortByCost, homeSections, hiddenHomeSections, showHomeDeviceUsageBars, homeQuotaSelection, themeColor, customThemeColor }
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         let version = try c.decodeIfPresent(Int.self, forKey: .schemaVersion) ?? 0
         guard version <= 3 else { throw HubError.incompatible(L10n.text("设置来自较新版本")) }
+        automaticallyCheckForUpdates = try c.decodeIfPresent(Bool.self, forKey: .automaticallyCheckForUpdates) ?? false
         schemaVersion = 3
         hubAddress = try c.decodeIfPresent(String.self, forKey: .hubAddress) ?? "http://127.0.0.1:17321"
         connected = try c.decodeIfPresent(Bool.self, forKey: .connected) ?? false

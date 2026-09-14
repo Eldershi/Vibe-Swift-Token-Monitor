@@ -37,6 +37,8 @@ private final class NoRedirects: NSObject, URLSessionTaskDelegate, @unchecked Se
 public final class HubClient: @unchecked Sendable {
     public let connection: HubConnection
     private let session: URLSession
+    private let lifecycleLock = NSLock()
+    private var cancelled = false
     public init(connection: HubConnection, protocolClasses: [AnyClass]? = nil) {
         self.connection = connection
         let config = URLSessionConfiguration.ephemeral
@@ -47,7 +49,17 @@ public final class HubClient: @unchecked Sendable {
         session = URLSession(configuration: config, delegate: NoRedirects(), delegateQueue: nil)
     }
     deinit { session.invalidateAndCancel() }
-    public func cancel() { session.invalidateAndCancel() }
+    public func cancel() {
+        lifecycleLock.withLock { cancelled = true }
+        // Async URLSession APIs may create their task after entering the method.
+        // Keep the session valid until deinit, so cancellation cannot race task
+        // creation into an Objective-C exception. Closed clients never reopen.
+        session.getAllTasks { tasks in tasks.forEach { $0.cancel() } }
+    }
+    private func checkActive() throws {
+        try Task.checkCancellation()
+        if lifecycleLock.withLock({ cancelled }) { throw CancellationError() }
+    }
     private func validate(_ response: URLResponse, stream: Bool = false) throws {
         guard let response = response as? HTTPURLResponse else { throw HubError.disconnected }
         if response.statusCode == 401 || response.statusCode == 403 { throw HubError.unauthorized }
@@ -56,8 +68,9 @@ public final class HubClient: @unchecked Sendable {
         if stream && response.mimeType != "text/event-stream" { throw HubError.unsupportedStream }
     }
     public func data(_ endpoint: String) async throws -> Data {
-        try Task.checkCancellation()
+        try checkActive()
         let (data, response) = try await session.data(for: connection.request(endpoint))
+        try checkActive()
         try validate(response)
         guard data.count <= 64 * 1024 * 1024 else { throw HubError.incompatible(L10n.text("响应过大")) }
         return data
@@ -73,17 +86,19 @@ public final class HubClient: @unchecked Sendable {
         AsyncThrowingStream { continuation in
             let task = Task {
                 do {
-                    try Task.checkCancellation()
+                    try checkActive()
                     var request = connection.request("api/stats/stream")
                     request.timeoutInterval = 75
                     request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
                     let (bytes, response) = try await session.bytes(for: request)
+                    try checkActive()
                     try validate(response, stream: true)
                     var parser = SSEParser(), chunk = Data()
                     for try await byte in bytes {
                         try Task.checkCancellation()
                         chunk.append(byte)
                         if byte == 10 || byte == 13 || chunk.count >= 16_384 {
+                            try checkActive()
                             for event in try parser.feed(chunk) {
                                 if let stats = try event.stats() { continuation.yield(stats) }
                             }

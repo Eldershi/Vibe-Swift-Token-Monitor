@@ -62,8 +62,13 @@ def stage(app):
     with (ROOT / 'Resources/Info.plist').open('rb') as source:
         info = plistlib.load(source)
     info.update(CFBundleIdentifier='local.tokenmonitor.native.beta', CFBundleName='Token Monitor Native Beta',
-                CFBundleDisplayName='Token Monitor Native Beta', CFBundleShortVersionString='0.5.1', CFBundleVersion='33',
-                TokenMonitorReleaseVersion='0.5.1')
+                CFBundleDisplayName='Token Monitor Native Beta', CFBundleShortVersionString='0.5.2', CFBundleVersion='35',
+                TokenMonitorReleaseVersion='0.5.2')
+    info.update(SUPublicEDKey=(ROOT / 'Resources/UpdatePublicKey.txt').read_text().strip(),
+                SUFeedURL='https://github.com/Eldershi/Vibe-Swift-Token-Monitor/releases/latest/download/appcast.xml',
+                SUEnableAutomaticChecks=False, SUAutomaticallyUpdate=False, SUAllowsAutomaticUpdates=False,
+                SUSendProfileInfo=False, SUVerifyUpdateBeforeExtraction=True, SURequireSignedFeed=True,
+                SUEnableJavaScript=False)
     (app / 'Contents/Info.plist').write_bytes(plistlib.dumps(info))
     agent = {'Label': 'local.tokenmonitor.native.beta.backend',
              'BundleProgram': 'Contents/MacOS/TokenMonitorBackend',

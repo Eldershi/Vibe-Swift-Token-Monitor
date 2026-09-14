@@ -9,8 +9,8 @@ public enum HomeSection: String, Codable, CaseIterable, Identifiable, Sendable {
         case .quota: L10n.text("额度")
         case .devices: L10n.text("设备")
         case .models: L10n.text("模型")
-        case .activity: L10n.text("活动")
-        case .trends: L10n.text("每日趋势")
+        case .activity: L10n.text("热力图")
+        case .trends: L10n.text("趋势")
         }
     }
     public static func normalizedOrder(_ names: [String]) -> [HomeSection] {

@@ -10,6 +10,7 @@ import MonitorCore
     var tool = "codex" { didSet { if oldValue != tool { selectionChanged?() } } }
     var period = Period.month { didSet { if oldValue != period { selectionChanged?() } } }
     var pinned = false
+    var automaticallyCheckForUpdates = false
     var showPanelOnLaunch = true
     var modelSortByCost = false { didSet { if oldValue != modelSortByCost { selectionChanged?() } } }
     var homeSections = HomeSection.allCases
@@ -19,6 +20,7 @@ import MonitorCore
     var themeColor = ThemeColor.system
     var customThemeColor = RGBColor(red: 0, green: 0.478, blue: 1)
     init(_ value: Preferences = Preferences()) {
+        automaticallyCheckForUpdates = value.automaticallyCheckForUpdates
         schemaVersion = value.schemaVersion
         hubAddress = value.hubAddress
         connected = value.connected
@@ -36,6 +38,7 @@ import MonitorCore
     }
     var snapshot: Preferences {
         var value = Preferences()
+        value.automaticallyCheckForUpdates = automaticallyCheckForUpdates
         value.schemaVersion = schemaVersion
         value.hubAddress = hubAddress
         value.connected = connected

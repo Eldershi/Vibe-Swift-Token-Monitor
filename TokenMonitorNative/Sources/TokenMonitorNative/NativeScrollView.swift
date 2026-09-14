@@ -198,6 +198,9 @@ final class PageNativeScroll: NSScrollView {
         host = LiveAppearanceHostingView(content: content)
         super.init(frame: .zero)
         drawsBackground = false
+        // The full-size SwiftUI viewport owns the titlebar layout; do not add a second inset.
+        automaticallyAdjustsContentInsets = false
+        contentInsets = NSEdgeInsetsZero
         hasVerticalScroller = false; hasHorizontalScroller = false
         verticalScrollElasticity = .automatic; horizontalScrollElasticity = .none
         host.sizingOptions = []

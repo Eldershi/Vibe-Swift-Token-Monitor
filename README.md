@@ -2,13 +2,13 @@
 
 macOS 26+ 的原生 SwiftUI / AppKit 用量监视器。
 
-> **当前主要针对 Codex，仅完成基础功能验证，尚不适合普通用户直接下载安装使用。** 应用图标、菜单栏自定义等体验尚未完善；其他 AI 工具尚未作为重点跟进，现有 Claude Code 等实验适配不代表正式支持。
+> **当前主要针对 Codex，仅完成基础功能验证，尚不适合普通用户直接下载安装使用。** 菜单栏自定义等体验尚未完善；其他 AI 工具尚未作为重点跟进，现有 Claude Code 等实验适配不代表正式支持。
 
-0.5.1 内置独立后台，验证了本机日志采集、用量与历史、API 等价费用、可获取的账号额度及现有 Hub 多设备汇总。无需原 Electron 应用常驻或另装 Node.js，退出界面后后台可继续采集。本项目非 OpenAI 官方应用。
+0.5.2 内置独立后台，验证了本机日志采集、用量与历史、API 等价费用、可获取的账号额度及现有 Hub 多设备汇总。无需原 Electron 应用常驻或另装 Node.js，退出界面后后台可继续采集。本项目非 OpenAI 官方应用。
 
 ## 当前状态与后续计划
 
-后续按 **后台可靠性与重置采样 → Token/额度换算与不规则重置预报 → 展示完善** 推进，再完善原创图标、饼图/环形图、菜单栏自定义和 Mac Widget。iOS 仅在 Mac 版稳定后评估，不承诺启动或发布日期。
+后续按 **后台可靠性与重置采样 → Token/额度换算与不规则重置预报 → 展示完善** 推进，再完善饼图/环形图、菜单栏自定义和 Mac Widget。iOS 仅在 Mac 版稳定后评估，不承诺启动或发布日期。
 
 上述新增能力属于计划，**尚未实现**；额度换算误差目标为满周额度的 5 个百分点以内，尚未验证达成，也不适用于重置预报。
 
@@ -17,17 +17,19 @@ macOS 26+ 的原生 SwiftUI / AppKit 用量监视器。
 
 ## 开发测试下载
 
-[Releases](https://github.com/Eldershi/Vibe-Swift-Token-Monitor/releases/latest) 中的附件目前仅供开发与测试，**暂不推荐普通用户直接使用**。当前正式版本为 **0.5.1（33）**；正式发布不代表上述功能边界已解除。
+[Releases](https://github.com/Eldershi/Vibe-Swift-Token-Monitor/releases/latest) 中的附件目前仅供开发与测试，**暂不推荐普通用户直接使用**。当前正式版本为 **0.5.2（35）**，见[发布记录](TokenMonitorNative/verification/0.5.2/发布记录.md)；正式发布不代表上述功能边界已解除。
 
-Apple Silicon 安装包内置 Node 与 Tokscale，校验值见本版本发布记录。最低 macOS 26，实际验证使用 macOS 27；ad-hoc 签名，**尚未公证，也没有自动更新**。Gatekeeper 可能要求在系统设置中确认打开。
+Apple Silicon 安装包内置 Node 与 Tokscale，校验值见本版本发布记录。最低 macOS 26，实际验证使用 macOS 27；ad-hoc 签名，**尚未公证**；支持 GitHub 正式版手动检查及默认关闭的自动检查，下载安装由用户确认。Gatekeeper 可能要求在系统设置中确认打开。
 
-0.5.1 保留 `Token Monitor Native Beta.app` 的安装名称、Bundle ID 和数据目录，供已有 beta 原位升级；这是兼容性安排，不会覆盖旧的 0.4.1 客户端。
+0.5.2 保留 `Token Monitor Native Beta.app` 的安装名称、Bundle ID 和数据目录，供已有 beta 原位升级；这是兼容性安排，不会覆盖旧的 0.4.1 客户端。
 
 - 本机用量：允许应用后台运行，等待首次历史扫描；额度失效时在原工具重新登录。
 - 共享 Hub：在设置手动填写地址和密钥、验证并绑定已有设备。选择“共享 Hub”或“仅本机”，两者不会重复相加。
 - 与原版并存：可以保留原版作为参考；同一设备向同一 Hub 上传时，只启用一个上传者。接替及回退步骤见[安装与后台管理](TokenMonitorNative/BETA.md)。
 
 费用是 **API 等价估算**，不是订阅账单；本机已删除且未归档的日志无法凭空恢复。缺失、真实零值、过期和离线分别呈现。
+
+0.5.1 及更早版本没有应用内更新入口，首次升级请下载本版 ZIP；从 0.5.2 起支持签名更新清单。详见[更新机制](TokenMonitorNative/UPDATES.md)。
 
 ## 与原版项目的关系
 
@@ -42,11 +44,13 @@ Apple Silicon 安装包内置 Node 与 Tokscale，校验值见本版本发布记
 
 ## 界面与数据
 
-- 首页固定用量摘要，设备、模型、额度、活动及每日趋势详情；支持今天／本月／总计。
+- 首页固定用量摘要，设备、模型、额度及活动详情；支持今天／本月／总计。
 - 简体中文和英语，语言跟随 macOS；设置按通用、布局、数据、关于排列。
 - 首页额度按有效报告动态定制，设备相对用量条可选；热力图与柱状图支持主题色悬停提示。
 - 自定义主题色；首页栏目显隐、手柄拖拽排序及模型排序持久化。
-- 固定小方块热力图随宽度补日期；每日趋势横向浏览，默认定位最新端。
+- 热力图、趋势在首页独立显隐排序，共用活动详情；每日明细按年/月展开，小计区分缺失记录。
+- 固定小方块热力图随宽度补日期；每日趋势横向浏览，默认定位最新端，玻璃控件优先响应交互。
+- 原生菜单勾选当前 Agent；应用使用 Apple Icon Composer 分层图标，适配浅色、深色与着色外观。
 - 本机采集、共享 Hub、设置与缓存独立；Hub 密钥手动保存到独立 **0600 明文文件**，不访问 Hub 钥匙串。原工具登录信息只读，详见管理说明。
 
 ## 从源码构建
@@ -69,7 +73,7 @@ bash scripts/install-beta.sh
 
 - [工程说明](TokenMonitorNative/README.md)：架构、共性规则、测试入口。
 - [安装与后台管理](TokenMonitorNative/BETA.md)：数据位置、同步接替、升级与卸载。
-- [0.5.1 发布记录](TokenMonitorNative/verification/0.5.1/发布记录.md)：本次验证及已知限制。
+- [0.5.2 发布记录](TokenMonitorNative/verification/0.5.2/发布记录.md)：本次验证及已知限制。
 - [维护摘要](MAINTENANCE.md)：当前状态和接手事项；[UI 约束](TokenMonitorNative/AGENTS.md)仅维护界面规格。
 
 公开推送前安装 [Gitleaks](https://github.com/gitleaks/gitleaks)，启用 `git config core.hooksPath .githooks`，运行 `python3 scripts/check-publication.py --staged` 和 `python3 scripts/check-publication.py`。检查失败不得推送。构建包通过 Release 分发；凭据、真实统计、轨迹、个人笔记和缓存不入库，测试夹具仅使用合成数据。

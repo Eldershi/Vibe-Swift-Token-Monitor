@@ -22,6 +22,7 @@ ditto "$BIN/TokenMonitorNative_TokenMonitorNative.bundle" "$APP/Contents/Resourc
 ditto "$BIN/TokenMonitorNative_MonitorCore.bundle" "$APP/Contents/Resources/TokenMonitorNative_MonitorCore.bundle"
 # Main-bundle metadata and localized privacy descriptions for system language selection.
 cp -R "$ROOT/Resources/en.lproj" "$ROOT/Resources/zh-Hans.lproj" "$APP/Contents/Resources/"
+python3 "$ROOT/scripts/compile-app-icon.py" --app "$APP"
 xattr -cr "$APP"
 SIGNING_IDENTITY="${SIGNING_IDENTITY:--}"
 # Sign every nested Mach-O before sealing the enclosing application.
@@ -30,12 +31,26 @@ while IFS= read -r -d '' binary; do
     codesign --force --sign "$SIGNING_IDENTITY" "$binary"
   fi
 done < <(find "$APP/Contents" -type f -print0)
+bash "$ROOT/scripts/embed-sparkle.sh" "$APP" "$STAGE/build/artifacts/sparkle/Sparkle"
 codesign --force --sign "$SIGNING_IDENTITY" --identifier local.tokenmonitor.native.beta "$APP"
 codesign --verify --deep --strict "$APP"
 "$APP/Contents/MacOS/TokenMonitorNative" --smoke-test
 "$APP/Contents/MacOS/TokenMonitorBackend" --smoke-test
+RELEASE_VERSION="$(/usr/libexec/PlistBuddy -c 'Print :TokenMonitorReleaseVersion' "$APP/Contents/Info.plist")"
+BUILD_NUMBER="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$APP/Contents/Info.plist")"
+ARCHIVE="$ROOT/dist/Token-Monitor-Native-${RELEASE_VERSION}-${BUILD_NUMBER}-arm64.zip"
 mkdir -p "$ROOT/dist"
 rm -rf "$ROOT/dist/Token Monitor Native Beta.app"
 ditto --noextattr "$APP" "$ROOT/dist/Token Monitor Native Beta.app"
-ditto -c -k --keepParent --norsrc "$APP" "$ROOT/dist/Token-Monitor-Native-0.5.1-arm64.zip"
+ditto -c -k --keepParent --norsrc "$APP" "$ARCHIVE"
 printf 'Built independent Beta: %s\n' "$ROOT/dist/Token Monitor Native Beta.app"
+
+UPDATE_KEY="${UPDATE_SIGNING_KEY:-$ROOT/../.local-private/update-signing/ed25519.seed}"
+rm -f "$ROOT/dist/appcast.xml"
+if [[ -f "$UPDATE_KEY" ]]; then
+  python3 "$ROOT/scripts/make-update-feed.py" --app "$ROOT/dist/Token Monitor Native Beta.app" \
+    --archive "$ARCHIVE" \
+    --key "$UPDATE_KEY" --sign-tool "$STAGE/build/artifacts/sparkle/Sparkle/bin/sign_update"
+else
+  echo 'No update signing key: appcast.xml was not generated. Restore the original key before publishing updates.'
+fi

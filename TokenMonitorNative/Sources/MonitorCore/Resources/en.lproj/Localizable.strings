@@ -262,3 +262,37 @@
 "首页显示设备用量条" = "Show device usage bars on home";
 "相对最高用量设备" = "Relative to the highest-usage device";
 "相对最高用量设备：%@" = "Relative to the highest-usage device: %@";
+
+"栏目" = "Sections";
+"显示设备用量条" = "Show device usage bars";
+"自定义额度" = "Customize quotas";
+
+"首页" = "Home";
+"活动热力图" = "Activity Heatmap";
+
+"热力图" = "Heatmap";
+
+"正在检查 GitHub 更新…" = "Checking GitHub for updates…";
+"GitHub 请求受限，请稍后再试。" = "GitHub requests are rate limited. Try again later.";
+"无法获取 GitHub 版本，请稍后重试。" = "Could not fetch GitHub releases. Try again later.";
+"当前没有较新的正式版本。" = "No newer stable release is available.";
+"发现新版本：%@" = "New version available: %@";
+"是否查看并安装此更新？安装前会再次确认。" = "Would you like to review this update? Installation requires your confirmation.";
+"查看更新" = "View update";
+"稍后" = "Later";
+"更新检查失败，请检查网络后重试。" = "Update check failed. Check your connection and try again.";
+"此版本尚未提供应用内更新包，请前往 GitHub 下载。" = "This release does not provide an in-app update. Download it from GitHub.";
+"此构建未配置更新签名，请使用独立安装包。" = "Update signing is not configured for this build. Use the standalone installer.";
+"无法启动更新安装程序。" = "Could not start the update installer.";
+"更新未完成，当前版本仍可继续使用。" = "The update did not finish. You can continue using this version.";
+"无法停止后台，已取消退出。请重试更新。" = "Could not stop the background service. Quitting was cancelled. Try updating again.";
+"软件更新" = "Software Updates";
+"自动检查更新" = "Automatically check for updates";
+"从 GitHub 检查正式版本，安装前由你确认。" = "Check GitHub for stable releases. You confirm before installing.";
+"检查更新" = "Check for updates";
+"下载并安装…" = "Download and install…";
+"上次检查" = "Last checked";
+"在 GitHub 查看版本" = "View releases on GitHub";
+
+"用量明细" = "Usage Details";
+"已记录" = "Recorded";
