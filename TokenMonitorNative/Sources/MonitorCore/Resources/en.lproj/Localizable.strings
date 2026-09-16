@@ -1,7 +1,7 @@
 // Application interface strings. Dynamic values use positional object placeholders.
 " 类型或值不符" = " has an invalid type or value";
 " 缺失" = " is missing";
-"%@ · API 等价估算" = "%@ · API equivalent estimate";
+"%@ API 等价估算" = "%@ API equivalent estimate";
 "%@，%@ tokens，API 等价估算 %@" = "%@, %@ tokens, API equivalent estimate %@";
 "%@，%@，%@，最后上报 %@。%@" = "%@, %@, %@, last reported %@. %@";
 "%@，%@，总用量 %@ tokens，API 等价估算 %@。%@" = "%@, %@, total usage %@ tokens, API equivalent estimate %@. %@";
@@ -11,11 +11,11 @@
 "Hub 地址" = "Hub address";
 "Hub 密钥需要检查" = "Check the Hub secret";
 "Hub 尚未报告此工具的数据" = "The Hub has not reported data for this tool";
-"Hub 已连接 · 多设备同步" = "Hub connected · Syncing devices";
+"Hub 已连接 多设备同步" = "Hub connected Syncing devices";
 "Hub 数据格式不兼容（%@），已保留上次有效数据。" = "Incompatible Hub data (%@). Previous valid data is retained.";
 "Hub 暂不支持串流，改用定时刷新。" = "The Hub does not support streaming. Using periodic refresh.";
 "Hub 构建" = "Hub build";
-"Hub 离线 · 保留上次汇总" = "Hub offline · Previous totals retained";
+"Hub 离线 保留上次汇总" = "Hub offline Previous totals retained";
 "Hub 请求受限，稍后重试" = "Hub requests limited. Try again later.";
 "Hub 返回 HTTP %@。" = "The Hub returned HTTP %@.";
 "Hub 连接已断开，正在重新连接。" = "Hub disconnected. Reconnecting.";
@@ -34,7 +34,7 @@
 "主题色用于图表、额度进度和交互强调。连接成功与过期状态仍使用绿色、橙色。外观、透明度与对比度跟随系统。" = "The accent color applies to charts, quota progress, and controls. Connected and stale states remain green and orange. Appearance, transparency, and contrast follow the system.";
 "仅本机" = "This Mac only";
 "今天" = "Today";
-"今日 · %@" = "Today · %@";
+"今日 %@" = "Today %@";
 "从原应用的 Hub 设置中复制共享密钥。保存后安全存入本应用的 Keychain。" = "Copy the shared secret from the original app's Hub settings. It is saved securely in this app's Keychain.";
 "估算费用" = "Estimated cost";
 "保存并启用同步" = "Save and enable sync";
@@ -43,7 +43,7 @@
 "停用后台" = "Disable background service";
 "健康检查" = "health check";
 "全部工具" = "All tools";
-"共享 Hub · 全部设备" = "Shared Hub · All devices";
+"共享 Hub 全部设备" = "Shared Hub All devices";
 "共享密钥" = "Shared secret";
 "共享密钥不正确。请在“数据”设置中检查密钥。" = "Incorrect shared secret. Check the secret in Data settings.";
 "共享密钥不能为空，也不能包含换行。" = "The shared secret cannot be empty or contain line breaks.";
@@ -57,7 +57,7 @@
 "只读取原工具已有的登录信息。登录失效时，请在 Codex 或 Claude Code 中重新登录，再点击立即刷新。Beta 不会刷新账号凭据或发起模型对话。" = "Only existing sign-in information from the original tools is read. If it expires, sign in again in Codex or Claude Code, then refresh. Beta does not renew credentials or start model conversations.";
 "同步状态" = "Sync status";
 "后台已停用" = "Background service disabled";
-"后台已停用 · 保留缓存" = "Background service disabled · Cache retained";
+"后台已停用 保留缓存" = "Background service disabled Cache retained";
 "后台操作未完成，请稍后重试" = "Background operation did not complete. Try again later.";
 "后台注册失败，请检查系统的登录项与扩展设置" = "Background registration failed. Check Login Items & Extensions in System Settings.";
 "后台状态" = "Background status";
@@ -65,7 +65,7 @@
 "后台运行中" = "Background service running";
 "启动时显示小窗口" = "Show window on launch";
 "启用后台" = "Enable background service";
-"周期已结束 · 等待更新" = "Period ended · Waiting for update";
+"周期已结束 等待更新" = "Period ended Waiting for update";
 "响应过大" = "response too large";
 "填写 Hub 地址与共享密钥，即可查看已有统计。" = "Enter the Hub address and shared secret to view existing statistics.";
 "外观与辅助功能" = "Appearance & Accessibility";
@@ -80,14 +80,14 @@
 "工具" = "Tool";
 "已保存并启用" = "Saved and enabled";
 "已保存连接，正在同步真实统计。" = "Connection saved. Syncing statistics.";
-"已发现日志来源 · 等待用量" = "Log source found · Waiting for usage";
+"已发现日志来源 等待用量" = "Log source found Waiting for usage";
 "已完成访问请求，正在重新读取额度。" = "Access request completed. Reading quota again.";
-"已暂停 · 等待唤醒" = "Paused · Waiting to wake";
+"已暂停 等待唤醒" = "Paused Waiting to wake";
 "已更新" = "Updated";
 "已获取" = "Available";
-"已连接 · Hub 多设备同步" = "Connected · Hub device sync";
-"已连接 · 实时同步" = "Connected · Live sync";
-"已连接 · 每 30 秒刷新" = "Connected · Refreshing every 30 seconds";
+"已连接 Hub 多设备同步" = "Connected Hub device sync";
+"已连接 实时同步" = "Connected Live sync";
+"已连接 每 30 秒刷新" = "Connected Refreshing every 30 seconds";
 "已连接Hub" = "Connected to Hub";
 "已连接本机" = "Connected to this Mac";
 "布局" = "Layout";
@@ -117,11 +117,11 @@
 "数据设置…" = "Data settings…";
 "无数据" = "No data";
 "无法访问钥匙串（%@）。请解锁登录钥匙串后重试。" = "Cannot access Keychain (%@). Unlock the login Keychain and try again.";
-"日志来源缺失 · 请检查原应用" = "Log source missing · Check the original app";
+"日志来源缺失 请检查原应用" = "Log source missing Check the original app";
 "日期" = "Date";
 "时间范围" = "Time range";
 "显示小窗口" = "Show window";
-"暂不可用，保留用量统计" = "Unavailable · Usage statistics retained";
+"暂不可用，保留用量统计" = "Unavailable Usage statistics retained";
 "暂停采集" = "Pause collection";
 "暂无可用数据来源" = "No available data sources";
 "暂无可用额度数据" = "No available quota data";
@@ -139,7 +139,7 @@
 "未能停用后台，请在系统设置中检查后台项目" = "Could not disable the background service. Check background items in System Settings.";
 "未获得钥匙串访问权限；日志统计仍可继续。" = "Keychain access was not granted. Log statistics can continue.";
 "未配置登录" = "Not signed in";
-"本地构建 · 尚未配置在线更新源" = "Local build · Online updates not configured";
+"本地构建 尚未配置在线更新源" = "Local build Online updates not configured";
 "本月" = "Month";
 "本机后台连接信息" = "local background connection information";
 "本机采集" = "Local Collection";
@@ -171,13 +171,13 @@
 "测试连接" = "Test connection";
 "版本" = "Version";
 "状态未知" = "Unknown status";
-"独立后台暂不可用 · 保留缓存" = "Background service unavailable · Cache retained";
+"独立后台暂不可用 保留缓存" = "Background service unavailable Cache retained";
 "用开关控制可见性，按住右侧手柄上下拖动排序。隐藏首页栏目不会删除统计数据，仍可通过页面菜单查看详情。" = "Use switches to show or hide sections. Drag the right-hand handles to reorder them. Hidden sections retain their statistics and remain accessible from the page menu.";
 "用量" = "Usage";
 "由 Hub 提供的 API 等价费用，不代表订阅账单。" = "API equivalent cost provided by the Hub, not a subscription bill.";
-"界面验证 · 示例数据" = "UI preview · Sample data";
+"界面验证 示例数据" = "UI preview Sample data";
 "登录失效，请在原工具重新登录" = "Sign-in expired. Sign in again in the original tool.";
-"离线 · 将自动重连" = "Offline · Reconnecting automatically";
+"离线 将自动重连" = "Offline Reconnecting automatically";
 "窗口" = "Window";
 "立即刷新" = "Refresh now";
 "等待后台启动" = "Waiting for background service";
@@ -189,9 +189,9 @@
 "红色" = "Red";
 "纵轴，零至%@ tokens" = "Vertical axis, zero to %@ tokens";
 "统计响应" = "statistics response";
-"统计响应 · " = "statistics response · ";
+"统计响应 " = "statistics response ";
 "绿色" = "Green";
-"缓存数据 · 等待连接" = "Cached data · Waiting for connection";
+"缓存数据 等待连接" = "Cached data Waiting for connection";
 "缓存读取" = "Cache reads";
 "缺失日期保留为空白，零值为已报告的零用量。" = "Missing dates remain blank. Zero values represent reported zero usage.";
 "缺失统计周期、时间戳或设备数据" = "Missing statistics periods, timestamps, or device data";
@@ -216,6 +216,8 @@
 "读取历史…" = "Loading history…";
 "调整%@顺序" = "Reorder %@";
 "账号 %@" = "Account %@";
+"Codex 来源 %@" = "Codex source %@";
+"专项 %@" = "Special %@";
 "账号额度" = "Account Quotas";
 "账期" = "Billing period";
 "趋势" = "Trends";
@@ -236,7 +238,7 @@
 "采集失败，将自动重试" = "Collection failed. Retrying automatically.";
 "采集已暂停" = "Collection paused";
 "采集状态未知" = "Unknown collection status";
-"采集需要检查 · 请打开原应用" = "Check collection · Open the original app";
+"采集需要检查 请打开原应用" = "Check collection Open the original app";
 "重启后台" = "Restart background service";
 "重置" = "Resets";
 "重试历史请求" = "Retry history request";
@@ -296,3 +298,203 @@
 
 "用量明细" = "Usage Details";
 "已记录" = "Recorded";
+
+"其他" = "Other";
+
+"API 等价估算" = "API-equivalent estimate";
+
+"剩余额度" = "Remaining quota";
+
+"已用额度" = "Used quota";
+
+"分项" = "Category";
+
+"短周期" = "Short window";
+
+"额度窗口" = "Quota window";
+
+"%@，剩余额度" = "%@ remaining quota";
+
+"显示今日 Token" = "Show today’s tokens";
+
+"显示短周期剩余额度" = "Show short-window remaining quota";
+
+"显示每周剩余额度" = "Show weekly remaining quota";
+
+"菜单栏样式" = "Menu bar style";
+
+"紧凑文字" = "Compact text";
+
+"小圆环与百分比" = "Small rings and percentages";
+
+"菜单栏额度来源" = "Menu bar quota source";
+
+"自动选择" = "Automatic";
+
+"菜单栏" = "Menu Bar";
+
+"已展开" = "Expanded";
+
+"已折叠" = "Collapsed";
+
+"饼图配色" = "Pie chart palette";
+
+"鲜明" = "Vivid";
+
+"柔和" = "Soft";
+
+"高区分度" = "High distinction";
+
+"颜色 %@" = "Color %@";
+
+"恢复图表默认配色" = "Reset chart colors";
+
+"图表" = "Charts";
+
+"额度换算" = "Quota Conversion";
+
+"暂无有效官方额度观测" = "No valid official quota observation";
+
+"额度观测已过期，等待更新" = "Quota observation expired; awaiting an update";
+
+"窗口时间或计量口径不明确" = "Window timing or measurement basis is unknown";
+
+"部分记录的账号归属未知" = "Some records have no verified account assignment";
+
+"尚未确认账号的完整设备范围" = "The complete device scope for this account is unconfirmed";
+
+"当前周期的用量记录尚不完整" = "Usage coverage for this window is incomplete";
+
+"缺少适用的模型、档位或历史价格" = "Applicable model, service tier or historical prices are missing";
+
+"暂无可计价的用量" = "No priceable usage available";
+
+"该区间额度变化不可比较" = "Quota changes in this interval are not comparable";
+
+"额度变化不足或已封顶，暂不反推剩余 Token" = "Quota change is too small or capped to estimate remaining tokens";
+
+"Token 分类比例需要合计为 100%" = "Token category ratios must add up to 100%";
+
+"换算暂不可用，请检查数据与价格状态" = "Conversion unavailable; check data and price status";
+
+"无法读取额度换算，请确认正在运行 Beta 2 后台" = "Cannot read quota conversion; check that the Beta 2 backend is running";
+
+"当前重置周期" = "Current quota window";
+
+"根据下次重置时间和窗口时长推算" = "Inferred from the next reset and window duration";
+
+"官方读数时间" = "Official observation time";
+
+"按已覆盖区间估算" = "Estimated from the covered interval";
+
+"估算剩余 Token" = "Estimated remaining tokens";
+
+"按当前使用比例估算，并非官方 Token 余额" = "Estimated from the usage mix; not an official token balance";
+
+"目标模型" = "Target model";
+
+"使用已记录组合" = "Use recorded mix";
+
+"非缓存输入" = "Uncached input";
+
+"缓存输入" = "Cached input";
+
+"输出" = "Output";
+
+"应用换算组合" = "Apply conversion mix";
+
+"设备与模型用量" = "Device and model usage";
+
+"不可计价 Token" = "Unpriced tokens";
+
+"按现价模拟" = "Simulation at current prices";
+
+"价格与来源" = "Prices and sources";
+
+"最近成功检查" = "Last successful check";
+
+"价格版本" = "Price version";
+
+"官方价格来源" = "Official pricing source";
+
+"价格更新失败，保留上一有效版本" = "Price update failed; keeping the last valid version";
+
+"每六小时检查价格" = "Check prices every six hours";
+
+"刷新价格" = "Refresh prices";
+
+"确认账号与采集覆盖" = "Confirm account and coverage";
+
+"仅在这些设备包含该账号此范围的全部用量时确认。已有日志不完整时不要确认覆盖。" = "Confirm only if these devices cover all account usage for this interval. Do not confirm coverage when logs are incomplete.";
+
+"设备 ID，逗号分隔" = "Device IDs, separated by commas";
+
+"绑定起点" = "Assignment starts";
+
+"确认所列设备属于此账号且包含全部用量" = "These devices belong to this account and cover all usage";
+
+"确认本机日志完整覆盖上述起点至今" = "Local logs completely cover the selected start through now";
+
+"保存归属与范围" = "Save account and scope";
+
+"明细同步未完成，保留本地记录" = "Detail sync incomplete; local records retained";
+
+"已记录权重占比" = "Share of recorded weighted usage";
+
+"估算额度消耗" = "Estimated quota consumption";
+
+"已记录用量尚未匹配额度范围" = "Recorded usage has not been matched to a quota window";
+
+"服务档位未知，相关用量不可计价" = "Unknown service tier; associated usage cannot be priced";
+
+"Token 分类缺失，相关用量不可计价" = "Missing token categories; associated usage cannot be priced";
+
+"部分模型缺少对应价格" = "Some models have no matching price";
+
+"采集覆盖" = "Collection Coverage";
+
+"已确认日志覆盖" = "Log coverage confirmed";
+
+"日志覆盖尚不完整或未确认" = "Log coverage incomplete or unconfirmed";
+
+"每百万 Token：非缓存输入 / 缓存输入 / 输出，单位 credits" = "Per million tokens: uncached input / cached input / output, in credits";
+
+"正在补读日志并匹配额度数据…" = "Reading logs and matching quota data…";
+
+"暂时无法读取换算数据，请检查后台连接后重试" = "Unable to read conversion data. Check the background connection and retry.";
+
+"近似估算 按现价与已记录组合" = "Approximate current prices and recorded mix";
+
+"默认包含全部设备，未知档位按普通模式。事件明细优先，旧设备按近期完整日组合外推。" = "Includes all devices; unspecified tiers use Standard. Events take priority; older devices use a projection from recent complete-day usage.";
+
+"设备范围" = "Device scope";
+
+"估算用量基数" = "Estimated usage basis";
+
+"尚无本周期明细的设备" = "Devices without current-cycle events";
+
+"未纳入价格换算的 Token" = "Tokens outside priced estimate";
+
+"完整归因校验" = "Complete attribution checks";
+
+"允许按现价和已记录用量近似估算" = "Allow approximation using current prices and recorded usage";
+"按近期完整日用量外推" = "Projected from recent complete-day usage";
+"按事件明细计算" = "Calculated from usage events";
+
+"估算权重占比" = "Estimated weight share";
+
+"暂时无法读取换算数据" = "Unable to load quota attribution";
+
+"官方已用额度" = "Official quota used";
+
+"额度来源" = "Quota source";
+
+"估算依据" = "Estimation basis";
+
+"来源 %@" = "Source %@";
+
+"暂无可换算的匹配数据" = "No matching usage yet";
+"已同步" = "Synced";
+"历史结果" = "Historical result";
+"暂不支持小时趋势" = "Hourly trends aren’t supported";
+"每小时 Token 用量" = "Hourly token usage";

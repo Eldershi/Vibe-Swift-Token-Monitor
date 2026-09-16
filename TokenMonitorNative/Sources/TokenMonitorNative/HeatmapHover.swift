@@ -28,10 +28,11 @@ enum HeatmapHitTesting {
 enum ChartHoverGeometry: Equatable {
     case heatmap
     case bars(ceiling: Double, slot: CGFloat, height: CGFloat)
+    case fittedBars(ceiling: Double, width: CGFloat, height: CGFloat, hourly: Bool)
     func cornerRadius(for rect: NSRect) -> CGFloat {
         switch self {
         case .heatmap: return 1.5
-        case .bars: return min(rect.width, rect.height) / 2
+        case .bars, .fittedBars: return min(rect.width, rect.height) / 2
         }
     }
     func index(at point: NSPoint, points: [TrendPoint]) -> Int? {
@@ -46,6 +47,13 @@ enum ChartHoverGeometry: Equatable {
             let bar = rect(at: index, points: points)
             let radius = cornerRadius(for: bar)
             return NSBezierPath(roundedRect: bar, xRadius: radius, yRadius: radius).contains(point) ? index : nil
+        case let .fittedBars(_, width, height, _):
+            guard point.x.isFinite, point.y.isFinite, width > 0, height > 0, !points.isEmpty,
+                  point.x >= 0, point.x < width, point.y >= 0, point.y < height else { return nil }
+            let slot = width / CGFloat(points.count), index = min(points.count - 1, Int(point.x / slot))
+            guard let value = points[index].tokens, value.isFinite, value > 0 else { return nil }
+            let bar = rect(at: index, points: points), radius = cornerRadius(for: bar)
+            return NSBezierPath(roundedRect: bar, xRadius: radius, yRadius: radius).contains(point) ? index : nil
         }
     }
     func rect(at index: Int, points: [TrendPoint]) -> NSRect {
@@ -55,8 +63,14 @@ enum ChartHoverGeometry: Equatable {
             let value = points[index].tokens ?? 0
             let barHeight = value.isFinite && value > 0 && ceiling > 0 ? CGFloat(min(1, value / ceiling)) * height : 0
             return NSRect(x: 17 + CGFloat(index) * slot, y: height - barHeight, width: 5, height: barHeight)
+        case let .fittedBars(ceiling, width, height, _):
+            let value = points[index].tokens ?? 0, slot = width / CGFloat(max(1, points.count))
+            let barWidth = min(5, max(2, slot * 0.66))
+            let barHeight = value.isFinite && value > 0 && ceiling > 0 ? CGFloat(min(1, value / ceiling)) * height : 0
+            return NSRect(x: (CGFloat(index) + 0.5) * slot - barWidth / 2, y: height - barHeight, width: barWidth, height: barHeight)
         }
     }
+    var isHourly: Bool { if case let .fittedBars(_, _, _, hourly) = self { return hourly }; return false }
 }
 
 /// A native, mouse-transparent view above the window content, outside both scroll clips.
@@ -80,8 +94,12 @@ enum ChartHoverGeometry: Equatable {
     }
     required init?(coder: NSCoder) { fatalError() }
     func configure(point: TrendPoint, accent: NSColor) -> NSSize {
-        valueLabel.stringValue = point.tokens.map { DisplayFormat.tokens($0) + " tokens" } ?? L10n.text("无数据")
-        dateLabel.stringValue = point.date.formatted(date: .abbreviated, time: .omitted)
+        configure(value: point.tokens.map { DisplayFormat.tokens($0) + " tokens" } ?? L10n.text("无数据"),
+                  detail: point.date.formatted(date: .abbreviated, time: .omitted), accent: accent)
+    }
+    func configure(value: String, detail: String, accent: NSColor) -> NSSize {
+        valueLabel.stringValue = value
+        dateLabel.stringValue = detail
         self.accent = accent
         let valueSize = valueLabel.intrinsicContentSize, dateSize = dateLabel.intrinsicContentSize
         let size = NSSize(width: min(280, ceil(max(valueSize.width, dateSize.width)) + 38), height: valueSize.height + dateSize.height + 27)
@@ -170,7 +188,10 @@ enum ChartHoverGeometry: Equatable {
         guard let container = window.contentView?.superview else { clear(); return }
         let tip = tooltip ?? ChartTooltipView(frame: .zero)
         tooltip = tip
-        let size = tip.configure(point: points[index], accent: emphasisColor)
+        let point = points[index]
+        let size = geometry.isHourly
+            ? tip.configure(value: point.tokens.map { DisplayFormat.tokens($0) + " tokens" } ?? L10n.text("无数据"), detail: point.date.formatted(date: .omitted, time: .shortened), accent: emphasisColor)
+            : tip.configure(point: point, accent: emphasisColor)
         let anchor = geometry.rect(at: index, points: points)
         let cell = window.convertToScreen(convert(anchor, to: nil))
         // Stable within one cell/bar, including near the above/below boundary.
@@ -218,7 +239,15 @@ enum ChartHoverGeometry: Equatable {
         NSGraphicsContext.saveGraphicsState()
         defer { NSGraphicsContext.restoreGraphicsState() }
         let outline = NSBezierPath(roundedRect: rect, xRadius: radius, yRadius: radius)
-        if case .bars = geometry {
+        if case .heatmap = geometry {
+            let shadow = NSShadow()
+            shadow.shadowColor = emphasisColor.withAlphaComponent(contrast ? 0.28 : 0.16)
+            shadow.shadowBlurRadius = 2; shadow.shadowOffset = .zero; shadow.set()
+            emphasisColor.withAlphaComponent(contrast ? 1 : 0.8).setStroke()
+            path.lineWidth = lineWidth; path.stroke()
+            shadow.shadowColor = .clear; shadow.set()
+            emphasisColor.withAlphaComponent(0.1).setFill(); outline.fill()
+        } else {
             // Keep every highlight pixel inside the same capsule as the Canvas.
             outline.addClip()
             emphasisColor.withAlphaComponent(0.1).setFill(); outline.fill()
@@ -229,14 +258,21 @@ enum ChartHoverGeometry: Equatable {
             } else {
                 stroke.setStroke(); path.lineWidth = lineWidth; path.stroke()
             }
-        } else {
-            let shadow = NSShadow()
-            shadow.shadowColor = emphasisColor.withAlphaComponent(contrast ? 0.28 : 0.16)
-            shadow.shadowBlurRadius = 2; shadow.shadowOffset = .zero; shadow.set()
-            emphasisColor.withAlphaComponent(contrast ? 1 : 0.8).setStroke()
-            path.lineWidth = lineWidth; path.stroke()
-            shadow.shadowColor = .clear; shadow.set()
-            emphasisColor.withAlphaComponent(0.1).setFill(); outline.fill()
         }
+    }
+}
+
+struct BarHoverOverlay: NSViewRepresentable {
+    let points: [TrendPoint]
+    let ceiling: Double
+    let width: CGFloat
+    let height: CGFloat
+    let hourly: Bool
+    let tint: Color?
+    func makeNSView(context: Context) -> HeatmapHoverView { HeatmapHoverView(frame: .zero) }
+    func updateNSView(_ view: HeatmapHoverView, context: Context) {
+        view.points = points
+        view.accent = tint.map(NSColor.init)
+        view.geometry = .fittedBars(ceiling: ceiling, width: width, height: height, hourly: hourly)
     }
 }

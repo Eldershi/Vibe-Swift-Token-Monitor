@@ -13,7 +13,7 @@ public enum QuotaSelection {
         return providers.flatMap { provider in
             provider.windows.filter(\.hasReportedQuota).map { window in
                 QuotaChoice(id: window.selectionID(provider: provider.provider),
-                            title: "\(provider.provider == "codex" ? "Codex" : provider.provider) · \(window.title)",
+                            title: "\(provider.provider == "codex" ? "Codex" : provider.provider) \(window.title)",
                             isDefault: provider.provider == "codex" && !window.isAdditional)
             }
         }.filter { seen.insert($0.id).inserted }
@@ -37,7 +37,7 @@ public enum QuotaSelection {
             let windows = provider.windows.filter { $0.hasReportedQuota && ids.contains($0.selectionID(provider: provider.provider)) }
             guard !windows.isEmpty else { return nil }
             return QuotaProvider(provider: provider.provider, status: provider.status, updatedAt: provider.updatedAt,
-                                 stale: provider.stale, windows: windows)
+                                 stale: provider.stale, windows: windows, accountId: provider.accountId, sourceDeviceId: provider.sourceDeviceId)
         }
     }
 }

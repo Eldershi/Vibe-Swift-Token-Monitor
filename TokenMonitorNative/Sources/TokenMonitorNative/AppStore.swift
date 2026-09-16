@@ -4,12 +4,21 @@ import MonitorCore
 @MainActor @Observable final class AppStore {
     static let shared = AppStore()
     var preferences = RuntimePreferences()
-    var stats: Stats? { didSet { snapshotRevision += 1; refreshTemporalBoundary() } }
+    var stats: Stats? { didSet {
+        if QuotaPresentation.topology(oldValue?.limits?.providers ?? []) != QuotaPresentation.topology(stats?.limits?.providers ?? []) {
+            menuQuotaSelection = nil; detailQuotaSelection = nil
+        }
+        snapshotRevision += 1; refreshTemporalBoundary()
+    } }
     var history: History? { didSet { historyPointsCache.removeAll(); expandedActivityCache.removeAll() } }
     var health: Health?
     var status = L10n.text("尚未连接")
     var error: String?
     var historyError: String?
+    var conversionSnapshot: ConversionSnapshot?
+    var rollingHourlyTrend: ConversionSnapshot.HourlyTrend?
+    var conversionError: String?
+    var conversionBusy = false
     var online = false
     var receivedAt: Date?
     @ObservationIgnored var now = Date() {
@@ -39,6 +48,8 @@ import MonitorCore
     private var ticker: Task<Void, Never>?
     private var historyTask: Task<Void, Never>?
     private var cacheTask: Task<Void, Never>?
+    private var conversionTask: Task<Void, Never>?
+    private var lastConversionRefresh = Date.distantPast
     private var client: HubClient?
     private var sessionID = UUID()
     private var historyWanted = false
@@ -61,7 +72,7 @@ import MonitorCore
         if let data = try? Data(contentsOf: Identity.directory.appendingPathComponent("cache.json")),
            let cache = try? JSONDecoder().decode(Cached.self, from: data), (Identity.isBeta || cache.address == preferences.hubAddress) {
             stats = cache.stats; receivedAt = cache.receivedAt; history = cache.history; loadedHistoryRevision = cache.historyRevision
-            status = L10n.text("缓存数据 · 等待连接")
+            status = L10n.text("缓存数据 等待连接")
         }
     }
     private struct HistoryPointsKey: Hashable {
@@ -73,8 +84,10 @@ import MonitorCore
     }
     @ObservationIgnored private var historyPointsCache: [HistoryPointsKey: [TrendPoint]] = [:]
     @ObservationIgnored private var expandedActivityCache: [HistoryPointsKey: [TrendPoint]] = [:]
+    @ObservationIgnored var overviewTrendAnimation = BarAnimationMemory()
+    @ObservationIgnored var detailTrendAnimation = BarAnimationMemory()
     @ObservationIgnored private(set) var historyProjectionComputations = 0
-    /// Resize and the one-second ticker reuse prepared points until history/tool/day changes.
+    /// Reuse prepared points until history, tool, or calendar day changes.
     func historyPoints(monthly: Bool = false, activity: Bool = false, minimumWeeks: Int = 16) -> [TrendPoint] {
         guard let history else { return [] }
         let calendar = Calendar.current
@@ -98,6 +111,24 @@ import MonitorCore
         historyPointsCache[key] = points
         return points
     }
+    var trendGranularity: TrendGranularity {
+        switch preferences.period { case .today: .hour; case .month: .day; case .allTime: .month }
+    }
+    var trendUnsupported: Bool { preferences.period == .today && preferences.tool != "codex" }
+    func trendPoints() -> [TrendPoint] {
+        if preferences.period == .today {
+            guard preferences.tool == "codex",
+                  let hourly = rollingHourlyTrend ?? conversionSnapshot?.trend?.hourly,
+                  hourly.isRolling24 else { return [] }
+            return hourly.points.compactMap { point in
+                guard let date = DateCodec.parse(point.start) else { return nil }
+                return TrendPoint(date: date, tokens: point.tokens, cost: nil)
+            }
+        }
+        guard let history else { return [] }
+        if preferences.period == .allTime { return history.points(monthly: true, tool: preferences.tool, now: historyDay, count: 24) }
+        return history.points(monthly: false, tool: preferences.tool, now: historyDay, count: 30)
+    }
     private struct PresentationKey: Equatable {
         let revision: Int
         let date: Date
@@ -115,6 +146,14 @@ import MonitorCore
     }
     func preparePresentation() {
         _ = tools; _ = quotaProviders; _ = devices; _ = modelRows
+        let ids = modelDistribution.items.map(\.id) + deviceDistribution.items.map(\.id)
+        var style = preferences.chartStyle
+        var next = style.slots
+        for scope in ["model:", "device:"] {
+            style.slots = next
+            next = style.resolvedSlots(ids.filter { $0.hasPrefix(scope) })
+        }
+        if next != preferences.chartStyle.slots { preferences.chartStyle.slots = next; savePreferences() }
     }
     /// Only publish a new status clock when a displayed expiry/day boundary is crossed.
     private func refreshTemporalBoundary() {
@@ -140,7 +179,7 @@ import MonitorCore
     var availableQuotaProviders: [QuotaProvider] {
         let key = presentationKey
         if let cached = quotaCache, cached.0 == key { return cached.1 }
-        let value = (stats?.limits?.providers ?? []).filter {
+        let value = quotaReports.filter {
             $0.windows.contains(where: \.hasReportedQuota) && ["ok", "rateLimited"].contains($0.status)
                 && !$0.isStale(now: key.date, threshold: stats?.staleAfterMs ?? 600_000)
         }
@@ -148,7 +187,7 @@ import MonitorCore
         return value
     }
     var quotaProviders: [QuotaProvider] {
-        availableQuotaProviders
+        availableQuotaProviders.filter { preferences.tool.isEmpty || $0.provider == preferences.tool }
     }
     var quotaChoices: [QuotaChoice] { QuotaSelection.choices(in: availableQuotaProviders) }
     var homeQuotaIDs: Set<String> {
@@ -200,6 +239,105 @@ import MonitorCore
         }
         modelsCache = (key, value); presentationComputations += 1
         return value
+    }
+    var menuQuotaSelection: (source: String, index: Int)?
+    var detailQuotaSelection: (source: String, id: String)?
+    var quotaReports: [QuotaProvider] {
+        let deviceReports = (stats?.devices ?? []).flatMap { device in
+            (device.limits?.providers ?? []).map { report in var copy = report; copy.sourceDeviceId = device.id; return copy }
+        }
+        return QuotaNaming.reports(deviceReports.isEmpty ? stats?.limits?.providers ?? [] : deviceReports)
+    }
+    var quotaThreshold: Double { stats?.staleAfterMs ?? 600_000 }
+    var menuQuotaReportIndex: Int? {
+        if let choice = menuQuotaSelection, choice.source == preferences.hubAddress,
+           quotaReports.indices.contains(choice.index) { return choice.index }
+        return QuotaPresentation.defaultReport(quotaReports, now: statusClock, threshold: quotaThreshold)
+    }
+    func selectMenuQuotaReport(_ index: Int) {
+        menuQuotaSelection = index >= 0 ? (preferences.hubAddress, index) : nil
+    }
+    @ObservationIgnored private var modelDistributionCache: (PresentationKey, Distribution)?
+    @ObservationIgnored private var deviceDistributionCache: (PresentationKey, Distribution)?
+    var modelDistribution: Distribution {
+        var key = presentationKey; key.tool = preferences.tool; key.period = preferences.period; key.cost = preferences.modelSortByCost
+        if let cached = modelDistributionCache, cached.0 == key { return cached.1 }
+        let value = Distribution(modelRows.compactMap { row in
+            guard let amount = key.cost ? row.cost : row.tokens else { return nil }
+            return DistributionItem(id: "model:" + row.name, name: row.name, value: amount)
+        }, otherID: "aggregate:other:model")
+        modelDistributionCache = (key, value); return value
+    }
+    var deviceDistribution: Distribution {
+        let key = PresentationKey(revision: snapshotRevision, date: statusClock, tool: preferences.tool, period: preferences.period)
+        if let cached = deviceDistributionCache, cached.0 == key { return cached.1 }
+        let value = Distribution(devices.compactMap { device in
+            guard !device.periodExpired(preferences.period, at: statusClock),
+                  let amount = device.periods[preferences.period.rawValue]?.tokens(tool: preferences.tool) else { return nil }
+            return DistributionItem(id: "device:" + device.id, name: device.id, value: amount)
+        }, otherID: "aggregate:other:device")
+        deviceDistributionCache = (key, value); return value
+    }
+    func conversionRequest(_ body: [String: Any]? = nil) async throws -> Data {
+        if ephemeral {
+            let args = ProcessInfo.processInfo.arguments
+            if args.contains("--preview-fixture"), let i = args.firstIndex(of: "--preview-conversion"), args.count > i + 1 {
+                return try Data(contentsOf: URL(fileURLWithPath: args[i + 1]))
+            }
+            throw HubError.disconnected
+        }
+        guard let client else { throw HubError.disconnected }
+        let payload = try body.map { try JSONSerialization.data(withJSONObject: $0) }
+        do { return try await client.send("api/beta/conversion", body: payload) }
+        catch HubError.http(404) {
+            guard Identity.isBeta, let resources = Bundle.main.resourceURL else { throw HubError.http(404) }
+            return try await ConversionBridge.request(payload, directory: Identity.directory.appendingPathComponent("Backend"), resources: resources)
+        }
+    }
+    func ensureConversionLoaded() async {
+        guard Identity.isBeta else { return }
+        if ephemeral {
+            let args = ProcessInfo.processInfo.arguments
+            guard args.contains("--preview-fixture"), args.contains("--preview-conversion") else { return }
+            if conversionSnapshot == nil { await updateConversion(["action": "cached"] ) }
+            return
+        }
+        if conversionSnapshot == nil { await updateConversion(["action": "cached"], refreshAfter: false) }
+        refreshConversion()
+    }
+    func updateConversion(_ body: [String: Any]? = nil, refreshAfter: Bool = false) async {
+        guard !conversionBusy else { return }
+        conversionBusy = true
+        defer { conversionBusy = false }
+        do {
+            let data = try await conversionRequest(body)
+            let decoded = try JSONDecoder().decode(ConversionSnapshot.self, from: data)
+            conversionSnapshot = decoded
+            if let hourly = decoded.trend?.hourly, hourly.isRolling24 {
+                rollingHourlyTrend = hourly
+            } else if Identity.isBeta, let resources = Bundle.main.resourceURL {
+                rollingHourlyTrend = nil
+                struct Envelope: Decodable { struct Trend: Decodable { let hourly: ConversionSnapshot.HourlyTrend }; let trend: Trend }
+                let payload = try JSONSerialization.data(withJSONObject: ["action": "rollingTrend"])
+                if let bridge = try? await ConversionBridge.request(payload, directory: Identity.directory.appendingPathComponent("Backend"), resources: resources),
+                   let hourly = try? JSONDecoder().decode(Envelope.self, from: bridge).trend.hourly,
+                   hourly.isRolling24 { rollingHourlyTrend = hourly }
+            } else { rollingHourlyTrend = nil }
+            conversionError = nil
+            if body?["action"] as? String == "refresh" { lastConversionRefresh = Date() }
+        } catch {
+            if conversionSnapshot == nil { conversionError = L10n.text("暂时无法读取换算数据") }
+        }
+        if refreshAfter { refreshConversion() }
+    }
+    func refreshConversion(force: Bool = false) {
+        guard Identity.isBeta, !ephemeral, conversionTask == nil,
+              force || Date().timeIntervalSince(lastConversionRefresh) >= 60 else { return }
+        conversionTask = Task { [weak self] in
+            guard let self else { return }
+            await self.updateConversion(["action": "refresh"])
+            self.conversionTask = nil
+        }
     }
     func savePreferences() {
         guard !ephemeral, canSavePreferences, !savingConnection else { return }
@@ -259,9 +397,9 @@ import MonitorCore
                 self.connect(connection)
             }
             backend.disconnected = { [weak self] in
-                self?.stopConnection(); self?.online = false; self?.status = BetaBackend.shared.enabled ? L10n.text("独立后台暂不可用 · 保留缓存") : L10n.text("后台已停用 · 保留缓存")
+                self?.stopConnection(); self?.online = false; self?.status = BetaBackend.shared.enabled ? L10n.text("独立后台暂不可用 保留缓存") : L10n.text("后台已停用 保留缓存")
             }
-            status = backend.enabled ? L10n.text("等待独立后台…") : L10n.text("后台已停用 · 保留缓存"); backend.start(); return
+            status = backend.enabled ? L10n.text("等待独立后台…") : L10n.text("后台已停用 保留缓存"); backend.start(); return
         }
         guard preferences.connected else { needsSetup = true; return }
         let address = preferences.hubAddress
@@ -326,13 +464,13 @@ import MonitorCore
                         }
                         throw HubError.disconnected
                     } catch HubError.unsupportedStream {
-                        self.status = L10n.text("已连接 · 每 30 秒刷新")
+                        self.status = L10n.text("已连接 每 30 秒刷新")
                         // Re-probe SSE every five minutes so a backend upgrade can restore live mode.
                         for _ in 0..<10 {
                             try await self.pause(30)
                             let snapshot = try await client.stats()
                             guard !Task.isCancelled, self.sessionID == id else { return }
-                            self.accept(snapshot); self.status = L10n.text("已连接 · 每 30 秒刷新")
+                            self.accept(snapshot); self.status = L10n.text("已连接 每 30 秒刷新")
                         }
                     }
                 } catch {
@@ -343,7 +481,7 @@ import MonitorCore
                         if error == .unauthorized { self.status = L10n.text("密钥需要检查"); return }
                         if case .incompatible = error { self.status = L10n.text("数据格式需要检查"); return }
                     }
-                    self.status = L10n.text("离线 · 将自动重连")
+                    self.status = L10n.text("离线 将自动重连")
                     do { try await self.pause(delay) } catch { return }
                     delay = min(delay * 2, 30)
                 }
@@ -352,31 +490,32 @@ import MonitorCore
     }
     func accept(_ snapshot: Stats) {
         stats = snapshot; now = Date(); receivedAt = now
-        online = true; error = nil; status = L10n.text("已连接 · 实时同步")
+        online = true; error = nil; status = L10n.text("已连接 实时同步")
         reconcileToolSelection()
         preparePresentation()
         if historyWanted && (history == nil || loadedHistoryRevision != snapshot.historyRevision) { loadHistory() }
         applyBetaSyncStatus(); scheduleCache()
+        if Identity.isBeta { Task { await ensureConversionLoaded() } }
     }
     func applyBetaSyncStatus() {
         guard Identity.isBeta, !ephemeral, !BetaBackend.shared.localOnly, BetaBackend.shared.snapshot?.sync?.enabled == true else { return }
         if let stamp = BetaBackend.shared.snapshot?.sync?.lastSuccess, let date = DateCodec.parse(stamp) { receivedAt = date }
         if BetaBackend.shared.snapshot?.sync?.error != nil { online = false; status = BetaBackend.shared.syncMessage }
-        else if BetaBackend.shared.snapshot?.sync?.lastSuccess != nil { online = true; status = L10n.text("已连接 · Hub 多设备同步") }
+        else if BetaBackend.shared.snapshot?.sync?.lastSuccess != nil { online = true; status = L10n.text("已连接 Hub 多设备同步") }
     }
     func refresh() {
-        if Identity.isBeta && !ephemeral { Task { await BetaBackend.shared.command("refresh") }; BetaBackend.shared.reconnect(); return }
+        if Identity.isBeta && !ephemeral { Task { await BetaBackend.shared.command("refresh") }; refreshConversion(force: true); BetaBackend.shared.reconnect(); return }
         if let client { connect(client.connection) }
         else { needsSetup = true }
     }
-    func sleep() { stopConnection(); online = false; status = L10n.text("已暂停 · 等待唤醒") }
+    func sleep() { stopConnection(); online = false; status = L10n.text("已暂停 等待唤醒") }
     func wake() {
         if Identity.isBeta && !ephemeral { BetaBackend.shared.reconnect(); return }
         if let client { connect(client.connection) }
         else if preferences.connected { ticker?.cancel(); ticker = nil; start() }
     }
     func stopConnection() {
-        sessionID = UUID(); credentialTask?.cancel(); connectionTask?.cancel(); client?.cancel(); historyTask?.cancel(); historyBusy = false
+        sessionID = UUID(); credentialTask?.cancel(); connectionTask?.cancel(); client?.cancel(); historyTask?.cancel(); conversionTask?.cancel(); conversionTask = nil; historyBusy = false; conversionBusy = false
     }
     func loadHistory() {
         historyWanted = true
@@ -413,6 +552,6 @@ import MonitorCore
     func preview(statsURL: URL, historyURL: URL?) throws {
         accept(try Stats.decode(Data(contentsOf: statsURL)))
         if let historyURL { history = try History.decode(Data(contentsOf: historyURL)) }
-        status = L10n.text("界面验证 · 示例数据"); online = false
+        status = L10n.text("界面验证 示例数据"); online = false
     }
 }

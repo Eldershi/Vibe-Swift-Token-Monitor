@@ -28,6 +28,7 @@ test('cost, real zero and absent tools remain distinct; unsupported tool timesta
   const remote=record(1000);remote.periods.allTime.clients.claude=0;remote.clientStatus.other={status:'ok',updatedAt:'2026-01-01'};
   const state=advanceRecord({output:remote,seen:record(100)},record(125));
   assert.equal(state.output.periods.allTime.costUsd,10.25);
+  assert.equal(state.output.agentVersion,'0.6.0');
   assert.equal(state.output.periods.allTime.clients.claude,0);assert.equal(state.output.periods.allTime.clients.missing,undefined);
   assert.equal(state.output.clientStatus.other.updatedAt,'2026-01-01');
 });

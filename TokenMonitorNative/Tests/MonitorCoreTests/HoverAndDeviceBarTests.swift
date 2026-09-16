@@ -19,7 +19,7 @@ final class DeviceUsageComparisonTests: XCTestCase {
         XCTAssertEqual(DeviceUsageComparison.fractions(devices: devices, tool: "", period: .allTime, now: Date()).count, 6)
     }
     @MainActor func testPreferenceDefaultAndDiskRoundTrip() throws {
-        let old = try JSONDecoder().decode(Preferences.self, from: Data(#"{"schemaVersion":3}"#.utf8))
+        let old = try JSONDecoder().decode(Preferences.self, from: Data(#"{"schemaVersion":4,"showHomeDeviceEquivalentQuota":true}"#.utf8))
         XCTAssertFalse(old.showHomeDeviceUsageBars)
         let runtime = RuntimePreferences(old)
         runtime.showHomeDeviceUsageBars = true
@@ -28,6 +28,8 @@ final class DeviceUsageComparisonTests: XCTestCase {
         let file = PreferencesFile(url: directory.appendingPathComponent("prefs.json"))
         try file.save(runtime.snapshot)
         XCTAssertTrue(try file.load().showHomeDeviceUsageBars)
+        let saved = try JSONSerialization.jsonObject(with: Data(contentsOf: file.url)) as! [String: Any]
+        XCTAssertNil(saved["showHomeDeviceEquivalentQuota"])
         XCTAssertTrue(runtime.snapshot.hiddenHomeSections.contains(.devices))
     }
 }

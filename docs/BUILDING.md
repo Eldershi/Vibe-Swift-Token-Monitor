@@ -13,9 +13,9 @@ Backend/runtime/node --test Backend/tests/*.test.cjs
 bash scripts/build-beta.sh
 ```
 
-生成的应用和 ZIP 位于 `TokenMonitorNative/dist/`，构建不会安装应用。脚本名称为历史兼容名称；请使用上述入口构建当前正式版本。
+生成的应用和 ZIP 位于 `TokenMonitorNative/dist/`，构建不会安装应用。脚本名称及应用的 Beta 安装身份为兼容已有数据和后台而保留；请使用上述入口构建当前正式版本。
 
-The app and ZIP are written to `TokenMonitorNative/dist/`; building does not install the app. Script names are retained for compatibility. Use the commands above for the current stable version.
+The app and ZIP are written to `TokenMonitorNative/dist/`; building does not install the app. Script names and the app's Beta installation identity are retained for compatibility with existing data and the background service. Use the commands above for the current stable version.
 
 - `MonitorCore`：数据模型、Hub 通信、历史及偏好 / data models, Hub transport, history, preferences.
 - `TokenMonitorNative`：SwiftUI / AppKit 界面 / native interface.

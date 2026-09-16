@@ -4,7 +4,7 @@ import MonitorCore
 /// Observe individual preferences, not the entire Codable value on each selection change.
 @MainActor @Observable final class RuntimePreferences {
     @ObservationIgnored var selectionChanged: (() -> Void)?
-    var schemaVersion = 3
+    var schemaVersion = 4
     var hubAddress = "http://127.0.0.1:17321"
     var connected = false
     var tool = "codex" { didSet { if oldValue != tool { selectionChanged?() } } }
@@ -12,6 +12,11 @@ import MonitorCore
     var pinned = false
     var automaticallyCheckForUpdates = false
     var showPanelOnLaunch = true
+    var chartStyle = ChartStyle()
+    var menuBarTokens = true
+    var menuBarShortQuota = true
+    var menuBarWeeklyQuota = false
+    var menuBarStyle = MenuBarStyle.text
     var modelSortByCost = false { didSet { if oldValue != modelSortByCost { selectionChanged?() } } }
     var homeSections = HomeSection.allCases
     var hiddenHomeSections = Set<HomeSection>([.devices])
@@ -21,6 +26,11 @@ import MonitorCore
     var customThemeColor = RGBColor(red: 0, green: 0.478, blue: 1)
     init(_ value: Preferences = Preferences()) {
         automaticallyCheckForUpdates = value.automaticallyCheckForUpdates
+        chartStyle = value.chartStyle
+        menuBarTokens = value.menuBarTokens
+        menuBarShortQuota = value.menuBarShortQuota
+        menuBarWeeklyQuota = value.menuBarWeeklyQuota
+        menuBarStyle = value.menuBarStyle
         schemaVersion = value.schemaVersion
         hubAddress = value.hubAddress
         connected = value.connected
@@ -39,6 +49,11 @@ import MonitorCore
     var snapshot: Preferences {
         var value = Preferences()
         value.automaticallyCheckForUpdates = automaticallyCheckForUpdates
+        value.chartStyle = chartStyle
+        value.menuBarTokens = menuBarTokens
+        value.menuBarShortQuota = menuBarShortQuota
+        value.menuBarWeeklyQuota = menuBarWeeklyQuota
+        value.menuBarStyle = menuBarStyle
         value.schemaVersion = schemaVersion
         value.hubAddress = hubAddress
         value.connected = connected

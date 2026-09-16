@@ -89,19 +89,24 @@ struct HomeLayoutSettings: View {
                     }
                     .contentShape(Rectangle())
                 }
-                Text(L10n.text("用开关控制可见性，按住右侧手柄上下拖动排序。隐藏首页栏目不会删除统计数据，仍可通过页面菜单查看详情。"))
-                    .font(.caption).foregroundStyle(.secondary)
             }
             Section(L10n.text("额度")) { HomeQuotaSettings(store: store) }
             Section(L10n.text("设备")) {
                 Toggle(L10n.text("首页显示设备用量条"), isOn: $store.preferences.showHomeDeviceUsageBars)
             }
+            Section(L10n.text("图表")) { ChartStyleSettings(store: store) }
+            Section(L10n.text("菜单栏")) { MenuBarSettings(store: store) }
             Section {
                 Button(L10n.text("恢复默认布局")) {
                     store.preferences.homeSections = HomeSection.allCases
                     store.preferences.hiddenHomeSections = [.devices]
                     store.preferences.homeQuotaSelection = nil
                     store.preferences.showHomeDeviceUsageBars = false
+                    store.preferences.menuBarTokens = true
+                    store.preferences.menuBarShortQuota = true
+                    store.preferences.menuBarWeeklyQuota = false
+                    store.preferences.menuBarStyle = .text
+                    store.menuQuotaSelection = nil
                 }
             }
         }.formStyle(.grouped)
@@ -136,8 +141,6 @@ struct HomeQuotaSettings: View {
                     )).disabled(selected.count == 1 && selected.contains(choice.id))
                 }
             }
-            Text(L10n.text("默认展示 Codex 常规额度。自定义时至少选择一项；可选额度随实际报告更新，完整额度可在详情页查看。"))
-                .font(.caption).foregroundStyle(.secondary)
         }
     }
 }
@@ -217,11 +220,14 @@ struct ActivityDetailView: View {
             Text(L10n.text("热力图")).font(.subheadline.weight(.semibold))
             ActivityView(store: store, showHeading: false)
             Text(L10n.text("趋势")).font(.subheadline.weight(.semibold))
-            UsageChart(points: store.historyPoints(), monthly: false,
-                       resetKey: store.preferences.tool + store.historyPresentationID.uuidString,
-                       tint: store.preferences.accentColor)
+            if store.trendUnsupported { Text(L10n.text("暂不支持小时趋势")).font(.caption).foregroundStyle(.secondary) }
+            else {
+                UsageChart(points: store.trendPoints(), granularity: store.trendGranularity, tint: store.preferences.accentColor,
+                           animationMemory: store.detailTrendAnimation)
+                    .id("activity-detail-trend-chart")
+            }
             HistoryNotice(store: store)
-            ActivityRecordsView(store: store)
+            if !store.trendUnsupported { ActivityRecordsView(store: store) }
         }
     }
 }

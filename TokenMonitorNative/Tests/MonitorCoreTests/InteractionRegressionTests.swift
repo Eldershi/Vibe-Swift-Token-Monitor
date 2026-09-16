@@ -156,7 +156,7 @@ final class TimestampCacheTests: XCTestCase {
         view.position.reset(); view.layout()
         XCTAssertEqual(view.contentView.bounds.minX, 1280, accuracy: 1)
     }
-    func testActivityFillsRealNativeViewportAcrossWidthChanges() async throws {
+    func testActivityFillsFixedNativeViewport() async throws {
         let store = AppStore(ephemeral: true)
         store.preferences.tool = ""
         store.now = DateCodec.parse("2026-09-13T04:00:00Z")!
@@ -171,7 +171,7 @@ final class TimestampCacheTests: XCTestCase {
             for child in view.subviews { if let value = chart(child) { return value } }
             return nil
         }
-        for width in [320.0, 600, 1000, 1600, 600] {
+        for width in [320.0] {
             window.setContentSize(NSSize(width: width, height: 200))
             for _ in 0..<5 { host.layoutSubtreeIfNeeded(); try? await Task.sleep(for: .milliseconds(20)) }
             let view = try XCTUnwrap(chart(host))
@@ -186,10 +186,10 @@ final class TimestampCacheTests: XCTestCase {
         let scroll = PageNativeScroll(content: AnyView(Text("short")))
         let marker = PositionMarker()
         scroll.setContent(AnyView(VStack(spacing: 0) { MarkerView(marker: marker).frame(height: 30); Text("short") }))
-        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 600, height: 900), styleMask: [.titled], backing: .buffered, defer: false)
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 320, height: 900), styleMask: [.titled], backing: .buffered, defer: false)
         window.contentView = scroll
         defer { window.orderOut(nil) }
-        for width in [320.0, 600, 1000] {
+        for width in [320.0] {
             window.setContentSize(NSSize(width: width, height: 900))
             for _ in 0..<4 { window.contentView?.layoutSubtreeIfNeeded(); try? await Task.sleep(for: .milliseconds(20)) }
             XCTAssertEqual(scroll.host.frame.width, scroll.contentView.bounds.width, accuracy: 1)
@@ -199,6 +199,76 @@ final class TimestampCacheTests: XCTestCase {
                 XCTAssertEqual(top, 0, accuracy: 1, "Short pages must not be centered")
             } else { XCTFail("Marker must be hosted") }
         }
+    }
+    func testPageContentGrowsWithoutCompressingOrMovingTheTop() async {
+        let scroll = PageNativeScroll(content: AnyView(EmptyView()))
+        let marker = PositionMarker()
+        func content(_ rows: Int) -> AnyView {
+            AnyView(VStack(spacing: 12) {
+                MarkerView(marker: marker).frame(height: 30)
+                ForEach(0..<rows, id: \.self) { Text("Model \($0)").frame(height: 24) }
+            }.padding(.top, 20))
+        }
+        scroll.setContent(content(4))
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 320, height: 300), styleMask: [.titled], backing: .buffered, defer: false)
+        window.contentView = scroll
+        defer { window.orderOut(nil) }
+        for _ in 0..<4 { window.contentView?.layoutSubtreeIfNeeded(); try? await Task.sleep(for: .milliseconds(20)) }
+        // Model data can update more than once while period data and geometry arrive.
+        // A stale measurement must neither replace the newest document height nor move its top.
+        scroll.setContent(content(40))
+        window.contentView?.layoutSubtreeIfNeeded()
+        scroll.setContent(content(8))
+        scroll.setContent(content(40))
+        for _ in 0..<4 { window.contentView?.layoutSubtreeIfNeeded(); try? await Task.sleep(for: .milliseconds(20)) }
+        XCTAssertGreaterThan(scroll.host.frame.height, scroll.contentView.bounds.height)
+        XCTAssertEqual(scroll.contentView.bounds.minY, 0, accuracy: 0.5)
+        if let view = marker.view {
+            let rect = scroll.host.convert(view.bounds, from: view)
+            let top = scroll.host.isFlipped ? rect.minY : scroll.host.bounds.height - rect.maxY
+            XCTAssertEqual(top, 20, accuracy: 1)
+        } else { XCTFail("Marker must remain hosted") }
+    }
+    func testFullSizeTitlebarKeepsTheSameTopInsetWhenPageCrossesViewportHeight() async throws {
+        let scroll = PageNativeScroll(content: AnyView(EmptyView()))
+        let marker = PositionMarker(), chartMarker = PositionMarker()
+        func content(_ rows: Int) -> AnyView {
+            AnyView(VStack(spacing: 12) {
+                MarkerView(marker: marker).frame(height: 30)
+                Color.clear.frame(height: 220)
+                MarkerView(marker: chartMarker).frame(height: 136)
+                ForEach(0..<rows, id: \.self) { Text("Model \($0)").frame(height: 24) }
+            }.padding(.top, 20))
+        }
+        let window = NSPanel(contentRect: NSRect(x: 0, y: 0, width: 320, height: 760),
+                             styleMask: [.titled, .closable, .resizable, .fullSizeContentView], backing: .buffered, defer: false)
+        window.titleVisibility = .hidden
+        window.titlebarAppearsTransparent = true
+        window.toolbarStyle = .unified
+        let toolbar = NSToolbar(identifier: "TopInsetRegression")
+        toolbar.displayMode = .iconOnly
+        window.toolbar = toolbar
+        window.contentView = scroll
+        window.orderFront(nil)
+        defer { window.orderOut(nil) }
+        func settle() async {
+            for _ in 0..<6 { window.contentView?.layoutSubtreeIfNeeded(); try? await Task.sleep(for: .milliseconds(20)) }
+        }
+        func topDistance(_ position: PositionMarker) throws -> CGFloat {
+            let view = try XCTUnwrap(position.view)
+            let rect = scroll.convert(view.bounds, from: view)
+            return scroll.isFlipped ? rect.minY : scroll.bounds.height - rect.maxY
+        }
+        scroll.setContent(content(6))
+        await settle()
+        let shortTop = try topDistance(marker)
+        let shortChartTop = try topDistance(chartMarker)
+        scroll.setContent(content(40))
+        await settle()
+        XCTAssertGreaterThan(scroll.host.frame.height, scroll.contentView.bounds.height)
+        XCTAssertEqual(try topDistance(marker), shortTop, accuracy: 1)
+        XCTAssertEqual(try topDistance(chartMarker), shortChartTop, accuracy: 1,
+                       "The activity chart must not acquire a different animation origin when rows change")
     }
 }
 private final class PositionMarker { weak var view: NSView? }

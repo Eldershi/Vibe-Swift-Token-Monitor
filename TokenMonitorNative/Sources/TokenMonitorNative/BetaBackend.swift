@@ -11,8 +11,8 @@ import MonitorCore
     var localOnly = UserDefaults.standard.bool(forKey: "betaViewLocal")
     var syncMessage: String {
         guard let sync = snapshot?.sync, sync.enabled else { return L10n.text("Hub 同步未启用") }
-        if let error = sync.error { return error == "unauthorized" ? L10n.text("Hub 密钥需要检查") : error == "credentialUnavailable" ? L10n.text("请在“数据”设置中输入地址和密钥") : error == "rateLimited" ? L10n.text("Hub 请求受限，稍后重试") : L10n.text("Hub 离线 · 保留上次汇总") }
-        return sync.syncing ? L10n.text("正在同步 Hub…") : L10n.text("Hub 已连接 · 多设备同步")
+        if let error = sync.error { return error == "unauthorized" ? L10n.text("Hub 密钥需要检查") : error == "credentialUnavailable" ? L10n.text("请在“数据”设置中输入地址和密钥") : error == "rateLimited" ? L10n.text("Hub 请求受限，稍后重试") : L10n.text("Hub 离线 保留上次汇总") }
+        return sync.syncing ? L10n.text("正在同步 Hub…") : L10n.text("Hub 已连接 多设备同步")
     }
     func selectLocal(_ local: Bool) { localOnly = local; UserDefaults.standard.set(local, forKey: "betaViewLocal"); reconnect() }
     func configureHub(address: String = "", secret: String = "", deviceId: String = "", enabled: Bool) async throws {
@@ -146,8 +146,6 @@ struct BetaBackendSettings: View {
                     .accessibilityElement(children: .ignore).accessibilityLabel(L10n.text("后台状态")).accessibilityValue(backend.message)
                 LabeledContent(L10n.text("最近成功采集"), value: backend.lastSuccess)
                     .accessibilityElement(children: .ignore).accessibilityLabel(L10n.text("最近成功采集")).accessibilityValue(backend.lastSuccess)
-                Text(L10n.text("支持 Codex 和 Claude Code。本机日志用于恢复历史。共享 Hub 的连接与设备绑定在下方设置。"))
-                    .font(.caption).foregroundStyle(.secondary)
                 if backend.requiresApproval { Button(L10n.text("打开系统后台设置")) { backend.openSystemSettings() } }
                 if backend.enabled {
                     ViewThatFits(in: .horizontal) {
@@ -157,6 +155,8 @@ struct BetaBackendSettings: View {
                     Button(L10n.text("停用后台")) { Task { await backend.disable() } }.disabled(backend.busy)
                 } else { Button(L10n.text("启用后台")) { backend.enable() } }
             }
+            let configured = (backend.snapshot?.providers ?? []).filter { !["notConfigured", "disabled"].contains($0.status) }.sorted { $0.provider == "codex" && $1.provider != "codex" }
+            if !configured.isEmpty {
             Section(L10n.text("账号额度")) {
                 if backend.snapshot?.providers?.contains(where: { $0.provider == "claude" && $0.status == "unauthorized" }) == true {
                     Button(L10n.text("授权读取 Claude 额度")) { Task {
@@ -170,17 +170,13 @@ struct BetaBackendSettings: View {
                 }
                 if let authorizationMessage { Text(authorizationMessage).font(.caption) }
 
-                ForEach(backend.snapshot?.providers ?? [], id: \.provider) { provider in
-                    LabeledContent(provider.provider == "codex" ? "Codex" : "Claude Code", value: quotaMessage(provider.status))
+                ForEach(configured, id: \.provider) { provider in
+                    LabeledContent(provider.provider == "codex" ? "Codex" : provider.provider == "claude" ? "Claude Code" : provider.provider, value: quotaMessage(provider.status))
                 }
-                Text(L10n.text("只读取原工具已有的登录信息。登录失效时，请在 Codex 或 Claude Code 中重新登录，再点击立即刷新。Beta 不会刷新账号凭据或发起模型对话。"))
-                    .font(.caption).foregroundStyle(.secondary)
+            }
             }
             BetaHubSettings()
-            Section(L10n.text("后台运行")) {
-                Text(L10n.text("退出 Beta 界面后仍继续采集，并在登录时恢复。暂停会保留后台连接；停用会注销后台服务。原版可保留在仅本机模式用于参考，避免同时向共享 Hub 上传。"))
-                    .font(.caption).foregroundStyle(.secondary)
-            }
+
         }
     }
 }

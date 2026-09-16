@@ -26,6 +26,11 @@ final class DevicePresentationTests: XCTestCase {
         XCTAssertNil(device.collectionNote(tool: ""))
         XCTAssertTrue(device.collectionNote(tool: "codex")?.contains("Codex") == true)
     }
+    func testWaitingForUsageIsNotACollectionWarning() throws {
+        let value = try device(#"{"copilot":{"overall":"waiting"},"codex":{"overall":"healthy"}}"#)
+        XCTAssertNil(value.collectionNote(tool: ""))
+        XCTAssertNil(value.collectionNote(tool: "copilot"))
+    }
     func testOperatingSystemAliasesAndFallback() {
         for name in ["macOS", "Darwin", " Mac OS X "] { XCTAssertEqual(DeviceOperatingSystem(name), .apple) }
         for name in ["Windows", "win32", "Windows 11", "Windows_NT"] { XCTAssertEqual(DeviceOperatingSystem(name), .windows) }

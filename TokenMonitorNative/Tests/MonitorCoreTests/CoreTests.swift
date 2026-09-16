@@ -110,7 +110,7 @@ final class CoreTests: XCTestCase {
         let old = Data(#"{"hubAddress":"http://example.invalid:17321","tool":"claude"}"#.utf8)
         try old.write(to:file.url)
         let p = try file.load(); XCTAssertEqual(p.tool,"claude"); XCTAssertFalse(p.pinned)
-        XCTAssertEqual(try Data(contentsOf:file.url.appendingPathExtension("pre-v3-backup")),old)
+        XCTAssertEqual(try Data(contentsOf:file.url.appendingPathExtension("pre-v4-backup")),old)
         XCTAssertEqual(try file.load(),p)
         try Data(#"{"schemaVersion":99}"#.utf8).write(to:file.url)
         XCTAssertThrowsError(try file.load())

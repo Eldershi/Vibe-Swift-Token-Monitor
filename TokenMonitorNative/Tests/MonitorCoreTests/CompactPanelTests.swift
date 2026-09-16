@@ -3,8 +3,8 @@ import SwiftUI
 @testable import TokenMonitorNative
 
 @MainActor final class CompactPanelTests: XCTestCase {
-    func testHostedWindowRejectsUndersizedFramesAndStillExpands() async {
-        let panel = CompactPanel(contentRect: NSRect(x: 0, y: 0, width: 360, height: 460), styleMask: [.titled, .closable, .resizable, .miniaturizable, .fullSizeContentView], backing: .buffered, defer: false)
+    func testHostedWindowLocksWidthAndStillResizesVertically() async {
+        let panel = CompactPanel(contentRect: NSRect(x: 0, y: 0, width: 320, height: 460), styleMask: [.titled, .closable, .resizable, .miniaturizable, .fullSizeContentView], backing: .buffered, defer: false)
         panel.isReleasedWhenClosed = false
         panel.toolbar = NSToolbar(identifier: "MinimumWidthTest")
         let host = NSHostingView(rootView: Text("Empty state").frame(minWidth: 320))
@@ -16,7 +16,7 @@ import SwiftUI
             panel.setFrame(NSRect(x: 20, y: 20, width: width, height: 700), display: false)
             host.layoutSubtreeIfNeeded()
             try? await Task.sleep(for: .milliseconds(20))
-            XCTAssertEqual(panel.contentRect(forFrameRect: panel.frame).width, max(width, 320), accuracy: 1)
+            XCTAssertEqual(panel.contentRect(forFrameRect: panel.frame).width, 320, accuracy: 1)
             XCTAssertEqual(panel.frame.height, 700, accuracy: 1)
         }
         // AppKit's interactive resize delegate must enforce the same boundary.
@@ -24,6 +24,6 @@ import SwiftUI
         XCTAssertEqual(size.width, 320, accuracy: 1)
         XCTAssertEqual(size.height, 700, accuracy: 1)
         panel.setContentSize(NSSize(width: 100, height: 600))
-        XCTAssertGreaterThanOrEqual(panel.contentRect(forFrameRect: panel.frame).width, 320)
+        XCTAssertEqual(panel.contentRect(forFrameRect: panel.frame).width, 320, accuracy: 1)
     }
 }

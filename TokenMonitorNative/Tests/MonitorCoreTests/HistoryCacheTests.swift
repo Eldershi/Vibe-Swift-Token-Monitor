@@ -29,4 +29,32 @@ import XCTest
         store.history = nil
         XCTAssertTrue(store.historyPoints().isEmpty)
     }
+    func testTrendBucketsFollowTodayThirtyDayAndTwentyFourMonthRules() throws {
+        let store = AppStore(ephemeral: true)
+        store.now = DateCodec.parse("2028-02-15T12:00:00+08:00")!
+        store.preferences.tool = "codex"
+        store.history = try History.decode(Data(#"{"daily":[{"date":"2028-02-01","tokens":8,"perClient":{"codex":{"tokens":3}}}],"monthly":[{"month":"2028-02","tokens":80,"perClient":{"codex":{"tokens":30}}}]}"#.utf8))
+        store.preferences.period = .month
+        let days = store.trendPoints()
+        XCTAssertEqual(days.count, 30)
+        XCTAssertEqual(days.first?.date, Calendar.current.date(byAdding: .day, value: -29, to: Calendar.current.startOfDay(for: store.now)))
+        XCTAssertTrue(days.contains { DateCodec.key($0.date, monthly: false) == "2028-02-01" && $0.tokens == 3 })
+        XCTAssertNil(days.last?.tokens)
+        store.preferences.period = .allTime
+        XCTAssertEqual(store.trendPoints().count, 24)
+        XCTAssertEqual(store.trendPoints().last?.tokens, 30)
+        store.preferences.period = .today
+        let hourStart = Calendar.current.dateInterval(of: .hour, for: store.now)!.start
+        let hourly = (0..<24).map { index in
+            ConversionSnapshot.HourlyPoint(hour: Calendar.current.component(.hour, from: hourStart.addingTimeInterval(Double(index - 23) * 3600)),
+                                           start: hourStart.addingTimeInterval(Double(index - 23) * 3600).ISO8601Format(), tokens: Double(index))
+        }
+        store.rollingHourlyTrend = ConversionSnapshot.HourlyTrend(version: 2, mode: "rolling24", date: DateCodec.key(store.now, monthly: false), timeZone: TimeZone.current.identifier,
+                                                                   rangeStart: hourly.first?.start, rangeEnd: hourStart.addingTimeInterval(3600).ISO8601Format(), points: hourly)
+        XCTAssertEqual(store.trendPoints().count, 24)
+        XCTAssertEqual(store.trendPoints().last?.tokens, 23)
+        store.preferences.tool = "claude"
+        XCTAssertTrue(store.trendUnsupported)
+        XCTAssertTrue(store.trendPoints().isEmpty)
+    }
 }

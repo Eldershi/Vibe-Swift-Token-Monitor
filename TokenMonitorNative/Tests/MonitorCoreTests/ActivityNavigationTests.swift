@@ -11,7 +11,7 @@ import SwiftUI
         XCTAssertEqual(HomeSection.activity.page, .activity)
         XCTAssertEqual(HomeSection.trends.page, .activity)
         XCTAssertEqual(Page.allCases.filter { $0 == .activity }.count, 1)
-        XCTAssertEqual(Page.allCases.count, 5)
+        XCTAssertEqual(Page.allCases.count, 6)
         XCTAssertEqual(HomeSection.activity.symbol, "calendar")
         XCTAssertEqual(HomeSection.trends.symbol, "chart.xyaxis.line")
         XCTAssertEqual(Page.activity.symbol, "waveform.path.ecg.text.clipboard")

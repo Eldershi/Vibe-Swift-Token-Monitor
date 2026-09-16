@@ -1,7 +1,7 @@
 import Foundation
 
 public struct Preferences: Codable, Equatable, Sendable {
-    public var schemaVersion = 3
+    public var schemaVersion = 4
     public var hubAddress = "http://127.0.0.1:17321"
     public var connected = false
     public var tool = "codex"
@@ -9,6 +9,11 @@ public struct Preferences: Codable, Equatable, Sendable {
     public var pinned = false
     public var automaticallyCheckForUpdates = false
     public var showPanelOnLaunch = true
+    public var chartStyle = ChartStyle()
+    public var menuBarTokens = true
+    public var menuBarShortQuota = true
+    public var menuBarWeeklyQuota = false
+    public var menuBarStyle = MenuBarStyle.text
     public var modelSortByCost = false
     public var homeSections = HomeSection.allCases
     public var hiddenHomeSections: Set<HomeSection> = [.devices]
@@ -32,13 +37,18 @@ public struct Preferences: Codable, Equatable, Sendable {
         homeSections.insert(section, at: to)
     }
     public init() {}
-    enum CodingKeys: String, CodingKey { case automaticallyCheckForUpdates, schemaVersion, hubAddress, connected, tool, period, pinned, showPanelOnLaunch, modelSortByCost, homeSections, hiddenHomeSections, showHomeDeviceUsageBars, homeQuotaSelection, themeColor, customThemeColor }
+    enum CodingKeys: String, CodingKey { case chartStyle, menuBarTokens, menuBarShortQuota, menuBarWeeklyQuota, menuBarStyle, automaticallyCheckForUpdates, schemaVersion, hubAddress, connected, tool, period, pinned, showPanelOnLaunch, modelSortByCost, homeSections, hiddenHomeSections, showHomeDeviceUsageBars, homeQuotaSelection, themeColor, customThemeColor }
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         let version = try c.decodeIfPresent(Int.self, forKey: .schemaVersion) ?? 0
-        guard version <= 3 else { throw HubError.incompatible(L10n.text("设置来自较新版本")) }
+        guard version <= 4 else { throw HubError.incompatible(L10n.text("设置来自较新版本")) }
         automaticallyCheckForUpdates = try c.decodeIfPresent(Bool.self, forKey: .automaticallyCheckForUpdates) ?? false
-        schemaVersion = 3
+        chartStyle = (try? c.decode(ChartStyle.self, forKey: .chartStyle)) ?? ChartStyle()
+        menuBarTokens = try c.decodeIfPresent(Bool.self, forKey: .menuBarTokens) ?? true
+        menuBarShortQuota = try c.decodeIfPresent(Bool.self, forKey: .menuBarShortQuota) ?? true
+        menuBarWeeklyQuota = try c.decodeIfPresent(Bool.self, forKey: .menuBarWeeklyQuota) ?? false
+        menuBarStyle = MenuBarStyle(rawValue: try c.decodeIfPresent(String.self, forKey: .menuBarStyle) ?? "text") ?? .text
+        schemaVersion = 4
         hubAddress = try c.decodeIfPresent(String.self, forKey: .hubAddress) ?? "http://127.0.0.1:17321"
         connected = try c.decodeIfPresent(Bool.self, forKey: .connected) ?? false
         tool = try c.decodeIfPresent(String.self, forKey: .tool) ?? "codex"
@@ -64,8 +74,8 @@ public final class PreferencesFile {
         let data = try Data(contentsOf: url)
         let result = try JSONDecoder().decode(Preferences.self, from: data)
         let raw = try JSONSerialization.jsonObject(with: data) as? [String: Any]
-        if (raw?["schemaVersion"] as? Int ?? 0) < 3 {
-            let backup = url.appendingPathExtension("pre-v3-backup")
+        if (raw?["schemaVersion"] as? Int ?? 0) < 4 {
+            let backup = url.appendingPathExtension("pre-v4-backup")
             if !FileManager.default.fileExists(atPath: backup.path) { try data.write(to: backup, options: .atomic) }
             try save(result)
         }

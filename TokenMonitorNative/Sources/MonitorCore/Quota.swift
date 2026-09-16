@@ -1,4 +1,5 @@
 import Foundation
+import CryptoKit
 
 /// Only display data; account keys, names, emails and credentials are not retained.
 public struct QuotaSummary: Codable, Sendable {
@@ -12,6 +13,27 @@ public struct QuotaProvider: Codable, Sendable {
     public let updatedAt: String?
     public let stale: Bool?
     public let windows: [QuotaWindow]
+    public var accountId: String? = nil
+    public var sourceDeviceId: String? = nil
+    public init(provider: String, status: String, updatedAt: String?, stale: Bool?, windows: [QuotaWindow], accountId: String? = nil, sourceDeviceId: String? = nil) {
+        self.provider = provider; self.status = status; self.updatedAt = updatedAt; self.stale = stale; self.windows = windows; self.accountId = accountId; self.sourceDeviceId = sourceDeviceId
+    }
+    enum CodingKeys: String, CodingKey { case provider, status, updatedAt, stale, windows, accountId, sourceDeviceId }
+    enum LegacyKeys: String, CodingKey { case accountKey }
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        provider = try c.decode(String.self, forKey: .provider); status = try c.decode(String.self, forKey: .status)
+        updatedAt = try c.decodeIfPresent(String.self, forKey: .updatedAt); stale = try c.decodeIfPresent(Bool.self, forKey: .stale)
+        windows = try c.decode([QuotaWindow].self, forKey: .windows)
+        sourceDeviceId = try c.decodeIfPresent(String.self, forKey: .sourceDeviceId)
+        accountId = try c.decodeIfPresent(String.self, forKey: .accountId)
+        if accountId == nil {
+            let raw = try decoder.container(keyedBy: LegacyKeys.self)
+            if let key = try raw.decodeIfPresent(String.self, forKey: .accountKey), !key.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                accountId = SHA256.hash(data: Data((provider + "\n" + String(key.prefix(256))).utf8)).map { String(format: "%02x", $0) }.joined()
+            }
+        }
+    }
     public func isStale(now: Date, threshold: Double) -> Bool {
         stale == true || DateCodec.parse(updatedAt).map { now.timeIntervalSince($0) * 1000 > threshold } ?? false
     }
@@ -45,12 +67,7 @@ public struct QuotaWindow: Codable, Sendable {
         guard let p = remainingPercent, p.isFinite, (0...100).contains(p) else { return nil }
         return p
     }
-    public var title: String {
-        let period: String
-        switch kind { case "session": period = windowMinutes == 300 ? L10n.text("5 小时") : L10n.text("当前时段"); case "daily": period = L10n.text("每日"); case "weekly": period = L10n.text("每周"); case "billing": period = L10n.text("账期"); default: period = kind }
-        if let label, !label.isEmpty, label != period { return "\(label) · \(period)" }
-        return period
-    }
+    public var title: String { QuotaNaming.window(kind: kind, label: label, minutes: windowMinutes) }
     public var remainingTitle: String {
         if let p = validPercent { return L10n.text("剩余 %@", p.formatted(.number.precision(.fractionLength(0...1))) + "%") }
         guard let remaining else { return L10n.text("剩余额度未知") }
@@ -99,5 +116,36 @@ extension History {
         let thisWeek = calendar.dateInterval(of: .weekOfYear, for: now)!.start
         let weeks = max(16, (calendar.dateComponents([.weekOfYear], from: firstWeek, to: thisWeek).weekOfYear ?? 0) + 1)
         return activityPoints(tool: tool, now: now, weeks: weeks)
+    }
+}
+
+public enum QuotaNaming {
+    public static func window(kind: String, label: String?, minutes: Double?) -> String {
+        let period: String
+        switch kind {
+        case "session": period = minutes == 300 ? L10n.text("5 小时") : L10n.text("当前时段")
+        case "daily": period = L10n.text("每日")
+        case "weekly": period = L10n.text("每周")
+        case "billing": period = L10n.text("账期")
+        default: period = kind.replacingOccurrences(of: "\u{00B7}", with: " ")
+        }
+        guard let label, !label.isEmpty else { return period }
+        if label.lowercased().contains("spark") { return "Spark " + period }
+        if ["codex","weekly","daily","monthly","5h","5 hours","5 小时","每周","每日","当前时段"].contains(label.lowercased()) || label == period { return period }
+        return label.replacingOccurrences(of: "\u{00B7}", with: " ") + " " + period
+    }
+    public static func reports(_ input: [QuotaProvider], tool: String = "") -> [QuotaProvider] {
+        var result: [QuotaProvider] = [], seen = Set<String>()
+        for p in input.sorted(by: { ($0.updatedAt ?? "") > ($1.updatedAt ?? "") }) where tool.isEmpty || p.provider == tool {
+            if let id = p.accountId {
+                let key = p.provider + ":" + id
+                guard seen.insert(key).inserted else { continue }
+            }
+            result.append(p)
+        }
+        return result.sorted { a,b in
+            if a.provider != b.provider { return a.provider == "codex" || (b.provider != "codex" && a.provider < b.provider) }
+            return (a.accountId ?? a.sourceDeviceId ?? "") < (b.accountId ?? b.sourceDeviceId ?? "")
+        }
     }
 }

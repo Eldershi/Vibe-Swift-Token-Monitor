@@ -16,7 +16,7 @@ import ServiceManagement
             }
         }
         MenuBarExtra {
-            Text(L10n.text("今日 · %@", String(describing: store.selectedToolTitle)))
+            Text(L10n.text("今日 %@", String(describing: store.selectedToolTitle)))
             Text("\(DisplayFormat.tokens(store.todayTokens)) tokens")
             Text(store.status)
             Divider()
@@ -27,8 +27,7 @@ import ServiceManagement
             Divider()
             Button(L10n.text("退出 %@", String(describing: Identity.name))) { NSApp.terminate(nil) }.keyboardShortcut("q")
         } label: {
-            Label(DisplayFormat.compact(store.todayTokens) + (Identity.isBeta ? " β" : ""), systemImage: "chart.bar.xaxis")
-                .accessibilityLabel(L10n.text("Token Monitor，今日 %@ tokens", String(describing: DisplayFormat.tokens(store.todayTokens))))
+            MenuBarMetricsLabel(store: store)
         }
     }
 }
@@ -100,16 +99,9 @@ import ServiceManagement
             let url = URL(fileURLWithPath: args[i + 1])
             try? AppStore.shared.preview(statsURL: url, historyURL: url.deletingLastPathComponent().appendingPathComponent("history.json"))
         }
-        if args.contains("--benchmark-resize"), args.contains("--preview-fixture") {
-            Task { @MainActor in await ResizeVerification.run(store: AppStore.shared) }; return
-        }
         AppStore.shared.start()
         GitHubUpdater.shared.setAutomaticChecks(AppStore.shared.preferences.automaticallyCheckForUpdates)
         if AppStore.shared.preferences.showPanelOnLaunch || AppStore.shared.needsSetup { PanelController.shared.show() }
-        if args.contains("--preview-fixture"), args.contains("--preview-wide") {
-            PanelController.shared.show()
-            PanelController.shared.verificationWindow.setContentSize(NSSize(width: 1000, height: 900))
-        }
         if args.contains("--preview-fixture"), args.contains("--preview-narrow") {
             PanelController.shared.show()
             PanelController.shared.verificationWindow.setContentSize(NSSize(width: 320, height: 500))
@@ -155,7 +147,7 @@ import ServiceManagement
     }
     func show() {
         if panel == nil {
-            let p = CompactPanel(contentRect: NSRect(x: 0, y: 0, width: 360, height: 460), styleMask: [.titled, .closable, .resizable, .miniaturizable, .fullSizeContentView], backing: .buffered, defer: false)
+            let p = CompactPanel(contentRect: NSRect(x: 0, y: 0, width: CompactPanel.contentWidth, height: 460), styleMask: [.titled, .closable, .resizable, .miniaturizable, .fullSizeContentView], backing: .buffered, defer: false)
             p.title = Identity.name
             p.titleVisibility = .hidden
             p.titlebarAppearsTransparent = true
@@ -173,7 +165,7 @@ import ServiceManagement
             host.sizingOptions = []
             p.contentView = host
             p.installSizeConstraints()
-            p.center(); if !ProcessInfo.processInfo.arguments.contains("--verify-period-animation"), !ProcessInfo.processInfo.arguments.contains("--benchmark-resize"), !ProcessInfo.processInfo.arguments.contains("--preview-fixture") { p.setFrameAutosaveName("NativeCompactWindow") }
+            p.center(); if !ProcessInfo.processInfo.arguments.contains("--verify-period-animation"), !ProcessInfo.processInfo.arguments.contains("--preview-fixture") { p.setFrameAutosaveName("NativeCompactWindow") }
             p.installSizeConstraints() // Recheck after restoring an older saved frame.
             panel = p
         }

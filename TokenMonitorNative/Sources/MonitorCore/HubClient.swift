@@ -75,6 +75,16 @@ public final class HubClient: @unchecked Sendable {
         guard data.count <= 64 * 1024 * 1024 else { throw HubError.incompatible(L10n.text("响应过大")) }
         return data
     }
+    public func send(_ endpoint: String, body: Data?) async throws -> Data {
+        try checkActive()
+        var request = connection.request(endpoint)
+        request.timeoutInterval = 120
+        if let body { request.httpMethod = "POST"; request.httpBody = body; request.setValue("application/json", forHTTPHeaderField: "Content-Type") }
+        let (data, response) = try await session.data(for: request)
+        try checkActive(); try validate(response)
+        guard data.count <= 16 * 1024 * 1024 else { throw HubError.incompatible(L10n.text("响应过大")) }
+        return data
+    }
     public func health() async throws -> Health {
         let data = try await data("api/health")
         guard let health = try? JSONDecoder().decode(Health.self, from: data), health.ok, health.role == "hub" else { throw HubError.incompatible(L10n.text("健康检查")) }

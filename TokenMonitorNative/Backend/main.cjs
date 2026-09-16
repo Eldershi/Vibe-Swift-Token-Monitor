@@ -4,6 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const os = require('node:os');
+const { ConversionService } = require('./conversion/service.cjs');
 const { HubSync } = require('./hub-sync.cjs');
 const { createNativeKeychainReader } = require('./native-keychain.cjs');
 const { HubCredentialStore } = require('./hub-credential.cjs');
@@ -34,6 +35,7 @@ async function startBackend({ directory, fixture = false } = {}) {
   catch (error) { if (error.code !== 'ENOENT') throw new Error('invalid backend configuration'); config = {}; }
   config = { paused: config.paused === true, deviceId: config.deviceId || crypto.randomUUID() };
   atomic(configFile, config);
+  let conversion = null;
   let runtime = null, closing = false, controlBusy = false, generation = 0;
   let lastSuccess = null, failure = null;
   const clients = new Set();
@@ -53,7 +55,7 @@ async function startBackend({ directory, fixture = false } = {}) {
     const expected = Buffer.from(`Bearer ${secret}`);
     return provided.length === expected.length && crypto.timingSafeEqual(provided, expected);
   };
-  const status = () => ({ version: '0.5.0', session, paused: config.paused,
+  const status = () => ({ version: '0.6.0', session, paused: config.paused,
     lastSuccess, failure, collecting: runtime?.getDiagnostics().usage?.tickInFlight === true,
     pid: process.pid, sync: sync.status(), providers: (runtime?.getSnapshot()?.limits?.providers || Object.values(hub.getDevices())[0]?.limits?.providers || []).map(p => ({ provider: p.provider, status: p.status })) });
   const hub = createHub({ port: 0, host: '127.0.0.1', secret,
@@ -64,6 +66,17 @@ async function startBackend({ directory, fixture = false } = {}) {
       const local = pathname.startsWith('/local/');
       if (local) { pathname = pathname.slice(6); req.url = pathname; }
       if (!authenticated(req)) { json(res, 401, { error: 'unauthorized' }); return true; }
+      if (pathname === '/api/beta/conversion') {
+        if(!conversion){json(res,503,{error:'conversionStarting'});return true;}
+        try {
+          if(req.method==='GET')json(res,200,conversion.status());
+          else if(req.method==='POST'){
+            const { readJsonBody }=require('./vendor/src/shared/http');
+            json(res,200,await conversion.command(await readJsonBody(req,32768)));
+          }else json(res,405,{error:'methodNotAllowed'});
+        }catch{json(res,400,{error:'conversionRequestFailed'});}
+        return true;
+      }
       if (pathname === '/api/beta/status' && req.method === 'GET') {
         json(res, 200, status()); return true;
       }
@@ -74,6 +87,7 @@ async function startBackend({ directory, fixture = false } = {}) {
           const { readJsonBody } = require('./vendor/src/shared/http');
           const config = await readJsonBody(req, 8192);
           await sync.configure(config, hub.getDevices()[0]);
+          await conversion?.close(); startConversion();
           json(res, 200, sync.status());
         } catch { json(res, 400, { error: 'hubConfigurationFailed' }); }
         finally { controlBusy = false; }
@@ -130,10 +144,10 @@ async function startBackend({ directory, fixture = false } = {}) {
     if (fixture || config.paused || closing) return;
     const epoch = ++generation;
     runtime = runAgent({
-      envelope: { deviceId: config.deviceId, hostname: os.hostname(), agentVersion: '0.5.0', agentRuntime: 'native-beta' },
+      envelope: { deviceId: config.deviceId, hostname: os.hostname(), agentVersion: '0.6.0', agentRuntime: 'native-beta' },
       usageOptions: {
         clients: 'codex,claude', allTimeSince: '1970-01-01', deviceId: config.deviceId,
-        agentVersion: '0.5.0', agentRuntime: 'native-beta',
+        agentVersion: '0.6.0', agentRuntime: 'native-beta',
         projectsEnabled: false, historyEnabled: true, historyIntervalMs: 60000,
         dailyHistoryArchiveEnabled: true, dailyHistoryArchiveWriteEnabled: true,
         anchorPersistenceEnabled: true, intervalMs: 60000,
@@ -162,7 +176,7 @@ async function startBackend({ directory, fixture = false } = {}) {
   }
   async function close() {
     if (closing) return;
-    closing = true; sync.close(); for (const res of clients) res.end(); await stopRuntime();
+    closing = true; await conversion?.close(); sync.close(); for (const res of clients) res.end(); await stopRuntime();
     try {
       if (JSON.parse(fs.readFileSync(endpointFile, 'utf8')).session === session) fs.unlinkSync(endpointFile);
     } catch (_) {}
@@ -171,7 +185,13 @@ async function startBackend({ directory, fixture = false } = {}) {
   await hub.start();
   atomic(endpointFile, { version: 1, session, pid: process.pid,
     address: `http://127.0.0.1:${hub.server.address().port}`, secret });
-  startRuntime();
+  function startConversion() {
+    conversion = new ConversionService({directory:path.join(directory,'conversion'),deviceId:sync.config.deviceId||config.deviceId,
+      request:(endpoint,body)=>sync.request(endpoint,body),remoteEnabled:()=>sync.config.enabled,
+      source:()=>sync.config.address||'local',localReports:()=>runtime?.getSnapshot()?.limits?.providers||[],enabled:()=>!config.paused&&!closing,fixture});
+    conversion.start();
+  }
+  startRuntime(); startConversion();
   return { close, hub, status, endpoint: JSON.parse(fs.readFileSync(endpointFile, 'utf8')) };
 }
 

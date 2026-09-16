@@ -1,5 +1,6 @@
 import XCTest
 import SwiftUI
+import Observation
 @testable import MonitorCore
 @testable import TokenMonitorNative
 
@@ -19,9 +20,8 @@ import SwiftUI
         let points = [100.0, 50, 1, 0.1, 0, nil].enumerated().map {
             TrendPoint(date: Date(timeIntervalSince1970: Double($0.offset) * 86400), tokens: $0.element, cost: nil)
         }
-        let geometry = ChartHoverGeometry.bars(ceiling: 100, slot: 7, height: 136)
         for name in [NSAppearance.Name.aqua, .darkAqua] {
-            let host = NSHostingView(rootView: FixedBarChart(points: points, monthly: false, tint: .blue).padding(20))
+            let host = NSHostingView(rootView: FixedBarChart(points: points, granularity: .day, tint: .blue).padding(20))
             host.sizingOptions = []
             let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 320, height: 200), styleMask: [.titled], backing: .buffered, defer: false)
             window.isReleasedWhenClosed = false; window.appearance = NSAppearance(named: name)
@@ -33,6 +33,7 @@ import SwiftUI
                 return view.subviews.lazy.compactMap { find($0) }.first
             }
             let overlay = try XCTUnwrap(find(host))
+            let geometry = ChartHoverGeometry.fittedBars(ceiling: 100, width: overlay.bounds.width, height: overlay.bounds.height, hourly: false)
             XCTAssertTrue(overlay.wantsLayer)
             let parent = try XCTUnwrap(overlay.superview)
             XCTAssertTrue(parent.subviews.last === overlay)
@@ -72,5 +73,66 @@ import SwiftUI
                 overlay.clear()
             }
         }
+    }
+
+    func testDetailPlotRetainsPreviousTargetWhenSiblingsChangeStructure() async throws {
+        _ = NSApplication.shared
+        var oldValues = Array(repeating: 0.0, count: 31)
+        var nextValues = Array(repeating: 0.0, count: 31)
+        for index in 0..<24 { oldValues[index] = 0.2 + Double(index % 4) * 0.1 }
+        for index in 0..<30 { nextValues[index] = 0.1 + Double((29 - index) % 6) * 0.12 }
+        let old = BarAnimationTarget(vector: .init(values: oldValues), count: 24)
+        let next = BarAnimationTarget(vector: .init(values: nextValues), count: 30)
+        let model = BarAnimationHarnessModel(target: old, expanded: false)
+        let memory = BarAnimationMemory()
+        let host = NSHostingView(rootView: BarAnimationHarness(model: model, memory: memory))
+        host.sizingOptions = []
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 240, height: 500), styleMask: [.titled], backing: .buffered, defer: false)
+        window.contentView = host; window.orderFront(nil)
+        defer { window.orderOut(nil) }
+        func settle(_ milliseconds: Int) async {
+            let steps = max(1, milliseconds / 10)
+            for _ in 0..<steps { host.layoutSubtreeIfNeeded(); try? await Task.sleep(for: .milliseconds(10)) }
+        }
+        func chartSnapshot() throws -> Data {
+            host.displayIfNeeded()
+            let rect = NSRect(x: 0, y: host.bounds.height - 136, width: 240, height: 136)
+            let bitmap = try XCTUnwrap(host.bitmapImageRepForCachingDisplay(in: rect))
+            host.cacheDisplay(in: rect, to: bitmap)
+            return try XCTUnwrap(bitmap.representation(using: .png, properties: [:]))
+        }
+        await settle(60)
+        let before = try chartSnapshot()
+        XCTAssertEqual(memory.displayed, old)
+        model.target = next
+        model.expanded = true // Mirrors the activity detail rows changing type and height.
+        XCTAssertEqual(memory.displayed, old, "The prior frame must survive the parent update until the plot starts its transition")
+        await settle(400)
+        let after = try chartSnapshot()
+        XCTAssertEqual(memory.displayed, next)
+        XCTAssertNotEqual(after, before)
+    }
+}
+
+@MainActor @Observable private final class BarAnimationHarnessModel {
+    var target: BarAnimationTarget
+    var expanded: Bool
+    init(target: BarAnimationTarget, expanded: Bool) { self.target = target; self.expanded = expanded }
+}
+
+private struct BarAnimationHarness: View {
+    @Bindable var model: BarAnimationHarnessModel
+    let memory: BarAnimationMemory
+    var body: some View {
+        VStack(spacing: 0) {
+            AnimatedBarPlot(target: model.target, tint: .blue, memory: memory)
+                .frame(width: 240, height: 136)
+                .id("activity-detail-trend-chart")
+            if model.expanded {
+                ForEach(0..<30, id: \.self) { Text("Day \($0)").frame(height: 12) }
+            } else {
+                Text("Collapsed").frame(height: 12)
+            }
+        }.frame(width: 240, alignment: .top)
     }
 }

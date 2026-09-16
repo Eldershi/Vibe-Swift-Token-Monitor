@@ -194,6 +194,11 @@ final class PageNativeScroll: NSScrollView {
     private var dragging = false
     private var measuring = false
     private var documentHeight: CGFloat = 0
+    private var contentGeneration = 0
+    private var measuredGeneration = -1
+    private var preserveTopGeneration: Int?
+    private var latestContent: AnyView?
+    private var installedTopInset: CGFloat = -1
     init(content: AnyView) {
         host = LiveAppearanceHostingView(content: content)
         super.init(frame: .zero)
@@ -213,22 +218,49 @@ final class PageNativeScroll: NSScrollView {
         NotificationCenter.default.addObserver(self, selector: #selector(scrolled), name: NSView.boundsDidChangeNotification, object: contentView)
     }
     func setContent(_ content: AnyView) {
-        host.setContent(AnyView(content.fixedSize(horizontal: false, vertical: true)
-            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { [weak self] height in
-                guard let self, abs(self.documentHeight - height) > 0.5 else { return }
-                self.documentHeight = height; self.needsLayout = true
-            }.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)))
+        latestContent = content
+        installContent(content, topInset: safeAreaInsets.top)
+    }
+    private func installContent(_ content: AnyView, topInset: CGFloat) {
+        contentGeneration &+= 1
+        let generation = contentGeneration
+        installedTopInset = topInset
+        preserveTopGeneration = contentView.bounds.minY <= 0.5 ? generation : nil
+        host.setContent(AnyView(VStack(spacing: 0) {
+            content.fixedSize(horizontal: false, vertical: true)
+                .padding(.top, topInset)
+                .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { [weak self] height in
+                    guard let self, self.contentGeneration == generation else { return }
+                    self.measuredGeneration = generation
+                    if abs(self.documentHeight - height) > 0.5 { self.documentHeight = height }
+                    self.needsLayout = true
+                }
+                .frame(maxWidth: .infinity, alignment: .topLeading)
+            Spacer(minLength: 0)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .ignoresSafeArea(.container, edges: .top)))
         needsLayout = true
     }
     required init?(coder: NSCoder) { fatalError() }
     override func layout() {
         guard !measuring else { return }
         measuring = true; defer { measuring = false }
+        let currentTopInset = safeAreaInsets.top
+        if abs(currentTopInset - installedTopInset) > 0.5, let latestContent {
+            installContent(latestContent, topInset: currentTopInset)
+        }
+        let shouldRemainAtTop = preserveTopGeneration == contentGeneration || contentView.bounds.minY <= 0.5
         super.layout()
         let width = contentView.bounds.width
         // SwiftUI reports only its ideal height; AppKit owns the viewport width.
         // Avoid asking the entire tree for another sizeThatFits pass during every resize.
         host.setFrameSize(NSSize(width: width, height: max(contentView.bounds.height, ceil(documentHeight))))
+        if shouldRemainAtTop {
+            contentView.scroll(to: .zero)
+            reflectScrolledClipView(contentView)
+            if measuredGeneration == contentGeneration { preserveTopGeneration = nil }
+        }
         thumb.frame = NSRect(x: bounds.width - 14, y: 0, width: 14, height: bounds.height)
         updateThumb()
     }

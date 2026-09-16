@@ -42,6 +42,10 @@ ARCHIVE="$ROOT/dist/Token-Monitor-Native-${RELEASE_VERSION}-${BUILD_NUMBER}-arm6
 mkdir -p "$ROOT/dist"
 rm -rf "$ROOT/dist/Token Monitor Native Beta.app"
 ditto --noextattr "$APP" "$ROOT/dist/Token Monitor Native Beta.app"
+# Desktop file providers may attach Finder metadata anywhere in the copied
+# bundle. Clear extended attributes after copying, then validate that copy.
+xattr -cr "$ROOT/dist/Token Monitor Native Beta.app"
+codesign --verify --deep --strict "$ROOT/dist/Token Monitor Native Beta.app"
 ditto -c -k --keepParent --norsrc "$APP" "$ARCHIVE"
 printf 'Built independent Beta: %s\n' "$ROOT/dist/Token Monitor Native Beta.app"
 

@@ -29,7 +29,9 @@ test('authenticated local API, pause persistence, restart discovery, SSE and sta
     assert.match(new TextDecoder().decode((await reader.read()).value), /data:/);
     abort.abort();
     assert.equal((await request('/api/beta/pause', 'POST')).status, 202);
-    assert.equal((await (await request('/api/beta/status')).json()).paused, true);
+    const pausedStatus = await (await request('/api/beta/status')).json();
+    assert.equal(pausedStatus.paused, true);
+    assert.equal(pausedStatus.version, '0.6.0');
     const first = backend.endpoint;
     const identity = JSON.parse(fs.readFileSync(path.join(directory, 'backend-config.json'))).deviceId;
     await backend.close();

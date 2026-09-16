@@ -17,7 +17,7 @@ struct BetaHubSettings: View {
         Group {
             Section(L10n.text("Hub 同步")) {
                 Picker(L10n.text("查看数据"), selection: Binding(get: { backend.localOnly }, set: { backend.selectLocal($0) })) {
-                    Text(L10n.text("共享 Hub · 全部设备")).tag(false)
+                    Text(L10n.text("共享 Hub 全部设备")).tag(false)
                     Text(L10n.text("仅本机")).tag(true)
                 }.tint(controlTint).accentColor(controlTint)
                 LabeledContent(L10n.text("同步状态"), value: backend.syncMessage)

@@ -70,9 +70,9 @@ final class QuotaSelectionTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: file.url.deletingLastPathComponent()) }
         try file.save(value)
         XCTAssertEqual(try file.load().homeQuotaSelection, value.homeQuotaSelection)
-        XCTAssertEqual(try file.load().schemaVersion, 3)
+        XCTAssertEqual(try file.load().schemaVersion, 4)
     }
-    @MainActor func testStoreUsesQuotaReportsWithoutUsageAndIgnoresToolFilterForQuotaDetails() throws {
+    @MainActor func testStoreFiltersQuotaDetailsAndKeepsHomeConfigurationIndependent() throws {
         let store = AppStore(ephemeral: true)
         var raw = try JSONSerialization.jsonObject(with: Data(contentsOf: Bundle.module.url(forResource: "stats", withExtension: "json", subdirectory: "Fixtures")!)) as! [String: Any]
         raw["devices"] = []
@@ -85,7 +85,13 @@ final class QuotaSelectionTests: XCTestCase {
         store.preferences.tool = "claude"
         XCTAssertEqual(store.quotaChoices.count, 3)
         XCTAssertEqual(store.homeQuotaProviders.first?.windows.count, 2)
+        XCTAssertTrue(store.quotaProviders.isEmpty)
+        XCTAssertTrue(store.quotaDonutChoices.isEmpty)
+        store.preferences.tool = "codex"
         XCTAssertEqual(store.quotaProviders.first?.windows.count, 3)
+        XCTAssertTrue(store.quotaDonutChoices.contains { $0.window.isAdditional })
+        store.preferences.tool = ""
+        XCTAssertEqual(store.quotaProviders.count, 1)
         store.preferences.homeQuotaSelection = [store.availableQuotaProviders[0].windows[2].selectionID(provider: "codex")]
         XCTAssertEqual(store.homeQuotaProviders.first?.windows.first?.limitId, "spark")
         store.now = store.now.addingTimeInterval(3600)

@@ -53,7 +53,7 @@ def verify():
 def stage(app):
     resources = app / 'Contents/Resources/Backend'
     resources.mkdir(parents=True, exist_ok=True)
-    for directory in ['vendor', 'node_modules', 'runtime']:
+    for directory in ['vendor', 'node_modules', 'runtime', 'conversion']:
         shutil.copytree(BACKEND / directory, resources / directory, ignore=shutil.ignore_patterns('.DS_Store'))
     for file in ['main.cjs', 'hub-sync.cjs', 'hub-http.cjs', 'native-keychain.cjs', 'hub-credential.cjs', 'package.json', 'package-lock.json', 'runtime-pin.json', 'tokscale-pin.json', 'UPSTREAM.md', 'TOKSCALE-LICENSE']:
         shutil.copy2(BACKEND / file, resources / file)
@@ -62,8 +62,8 @@ def stage(app):
     with (ROOT / 'Resources/Info.plist').open('rb') as source:
         info = plistlib.load(source)
     info.update(CFBundleIdentifier='local.tokenmonitor.native.beta', CFBundleName='Token Monitor Native Beta',
-                CFBundleDisplayName='Token Monitor Native Beta', CFBundleShortVersionString='0.5.2', CFBundleVersion='35',
-                TokenMonitorReleaseVersion='0.5.2')
+                CFBundleDisplayName='Token Monitor Native Beta', CFBundleShortVersionString='0.6.0', CFBundleVersion='41',
+                TokenMonitorReleaseVersion='0.6.0')
     info.update(SUPublicEDKey=(ROOT / 'Resources/UpdatePublicKey.txt').read_text().strip(),
                 SUFeedURL='https://github.com/Eldershi/Vibe-Swift-Token-Monitor/releases/latest/download/appcast.xml',
                 SUEnableAutomaticChecks=False, SUAutomaticallyUpdate=False, SUAllowsAutomaticUpdates=False,

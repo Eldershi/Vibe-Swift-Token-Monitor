@@ -80,6 +80,7 @@ public struct Device: Codable, Identifiable, Sendable {
     public let clientHealth: ClientHealth?
     public let periods: [String: Usage]
     public let periodWindows: PeriodWindows?
+    public var limits: QuotaSummary? = nil
     public var reportDate: Date? { DateCodec.parse(receivedAt) ?? DateCodec.parse(updatedAt) }
     public func collectionNote(tool: String) -> String? {
         let names = tool.isEmpty
@@ -94,7 +95,7 @@ public struct Device: Codable, Identifiable, Sendable {
             switch state {
             case "unavailable", "missing": return L10n.text("%@：未找到用量日志", title)
             case "attention": return L10n.text("%@：采集需要检查，请打开该应用", title)
-            case "waiting": return L10n.text("%@：已发现日志，等待用量", title)
+            case "waiting": return nil
             case "unknown": return L10n.text("%@：采集状态未知", title)
             default: return nil
             }
@@ -156,7 +157,7 @@ public struct Stats: Codable, Sendable {
             else { throw HubError.incompatible(L10n.text("缺失统计周期、时间戳或设备数据")) }
             return stats
         } catch let error as HubError { throw error }
-        catch let error as DecodingError { throw HubError.incompatible(L10n.text("统计响应 · ") + decodingLocation(error)) }
+        catch let error as DecodingError { throw HubError.incompatible(L10n.text("统计响应 ") + decodingLocation(error)) }
         catch { throw HubError.incompatible(L10n.text("统计响应")) }
     }
     public var tools: [String] {
@@ -222,6 +223,17 @@ public struct TrendPoint: Identifiable, Equatable, Sendable {
     public let date: Date
     public let tokens: Double?
     public let cost: Double?
+    public init(date: Date, tokens: Double?, cost: Double?) { self.date = date; self.tokens = tokens; self.cost = cost }
+}
+public enum TrendGranularity: String, Equatable, Sendable {
+    case hour, day, month
+    public var accessibilityTitle: String {
+        switch self {
+        case .hour: L10n.text("每小时 Token 用量")
+        case .day: L10n.text("每日 Token 用量")
+        case .month: L10n.text("每月 Token 用量")
+        }
+    }
 }
 public enum DateCodec {
     public static func parse(_ value: String?) -> Date? {

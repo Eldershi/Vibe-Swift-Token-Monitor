@@ -65,7 +65,7 @@ function advanceRecord(state, record) {
   result.clientStatus = { ...result.clientStatus, ...record.clientStatus };
   result.clientHealth = { ...result.clientHealth, ...record.clientHealth };
   result.trackedClients = record.trackedClients;
-  result.agentVersion = '0.5.0-beta.2'; result.agentRuntime = 'native-beta';
+  result.agentVersion = '0.6.0'; result.agentRuntime = 'native-beta';
   result.projectsEnabled = false;
   for (const p of Object.values(result.periods)) { p.sessions = {}; p.projects = {}; }
   seen.periodWindows = clone(record.periodWindows);
@@ -86,11 +86,12 @@ class HubSync {
   }
   status() { return { enabled: this.config.enabled, configured: !!this.config.address, address: this.config.address || '', deviceId: this.config.deviceId || '', lastSuccess: this.lastSuccess, error: this.error, errorDetail: this.errorDetail || null, durationMs: this.durationMs || null, syncing: this.running }; }
   async request(endpoint, body) {
-    if (!this.secretPromise) this.secretPromise = Promise.resolve(this.credential(this.config.address)).catch(() => null);
+    const address = this.config.address;
+    if (!this.secretPromise) this.secretPromise = Promise.resolve(this.credential(address)).catch(() => null);
     const secret = await this.secretPromise;
     if (!secret) this.secretPromise = null;
     if (!secret) throw Error('credentialUnavailable');
-    const response = await this.fetch(new URL(endpoint, this.config.address.replace(/\/?$/, '/')), {
+    const response = await this.fetch(new URL(endpoint, address.replace(/\/?$/, '/')), {
       method: body ? 'POST' : 'GET', headers: { Authorization: `Bearer ${secret}`, 'Content-Type': 'application/json' },
       ...(body ? { body: JSON.stringify(body) } : {}), signal: AbortSignal.timeout(45000), redirect: 'error'
     });

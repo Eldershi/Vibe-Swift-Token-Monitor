@@ -17,18 +17,14 @@ struct SettingsView: View {
                     Section(L10n.text("窗口")) {
                         Toggle(L10n.text("启动时显示小窗口"), isOn: $store.preferences.showPanelOnLaunch)
                         Toggle(L10n.text("小窗口置顶"), isOn: $store.preferences.pinned)
-                        Text(L10n.text("关闭窗口后仍可通过菜单栏打开。退出原生应用不会退出 Token Monitor 后台。")).font(.caption).foregroundStyle(.secondary)
                     }
                     Section(L10n.text("外观与辅助功能")) {
                         ThemeColorSettings(store: store)
-                        Text(L10n.text("主题色用于图表、额度进度和交互强调。连接成功与过期状态仍使用绿色、橙色。外观、透明度与对比度跟随系统。")).font(.caption).foregroundStyle(.secondary)
                     }
                     Section(L10n.text("语言")) {
                         Button(L10n.text("打开系统语言设置")) {
                             NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.Localization-Settings.extension")!)
                         }
-                        Text(L10n.text("语言跟随系统。可在系统设置的“语言与地区”中为本应用指定语言，重新打开应用后生效。"))
-                            .font(.caption).foregroundStyle(.secondary)
                     }
                 }.formStyle(.grouped)
             } label: {
@@ -46,7 +42,6 @@ struct SettingsView: View {
                             TextField(L10n.text("Hub 地址"), text: $address, prompt: Text("http://127.0.0.1:17321"))
                                 .autocorrectionDisabled()
                             SecureField(L10n.text("共享密钥"), text: $secret)
-                            Text(L10n.text("从原应用的 Hub 设置中复制共享密钥。保存后安全存入本应用的 Keychain。")).font(.caption).foregroundStyle(.secondary)
                             HStack {
                                 Button(L10n.text("测试连接")) { test() }.disabled(testing || secret.isEmpty)
                                 if testing { ProgressView().controlSize(.small) }
@@ -56,7 +51,6 @@ struct SettingsView: View {
                             if let message { Text(message).font(.callout).textSelection(.enabled) }
                         }
                         Section {
-                            Text(L10n.text("支持本机、局域网、Tailscale 地址和 HTTPS Hub。其他网络上的设备需先有可达的 Hub 地址。")).font(.caption).foregroundStyle(.secondary)
                             if !Identity.isBeta { Button(L10n.text("打开 Token Monitor")) { Backend.open() } }
                         }
                         if let error = store.preferencesError { Section(L10n.text("设置文件需要检查")) { Text(error).textSelection(.enabled) } }
@@ -105,6 +99,11 @@ struct SettingsView: View {
         }
         .onChange(of: address) { invalidate() }
         .onChange(of: secret) { invalidate() }
+        .onChange(of: store.preferences.chartStyle) { store.savePreferences() }
+        .onChange(of: store.preferences.menuBarTokens) { store.savePreferences() }
+        .onChange(of: store.preferences.menuBarShortQuota) { store.savePreferences() }
+        .onChange(of: store.preferences.menuBarWeeklyQuota) { store.savePreferences() }
+        .onChange(of: store.preferences.menuBarStyle) { store.savePreferences() }
         .onChange(of: store.preferences.showPanelOnLaunch) { store.savePreferences() }
         .onChange(of: store.preferences.showHomeDeviceUsageBars) { store.savePreferences() }
         .onChange(of: store.preferences.homeQuotaSelection) { store.savePreferences() }
