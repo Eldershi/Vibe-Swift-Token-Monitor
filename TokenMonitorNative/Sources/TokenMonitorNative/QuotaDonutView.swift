@@ -22,7 +22,7 @@ extension AppStore {
     }
     func reportTitle(_ provider: QuotaProvider, in reports: [QuotaProvider]) -> String {
         if reports.filter({ $0.provider == provider.provider }).count == 1 { return provider.provider == "codex" ? "Codex" : provider.provider }
-        if let device = provider.sourceDeviceId { return device }
+        if let device = provider.sourceDeviceId { return preferences.chartStyle.displayName(id: "device:" + device, fallback: device) }
         return L10n.text("来源 %@", String((reports.firstIndex(where: { $0.accountId == provider.accountId && $0.provider == provider.provider }) ?? 0) + 1))
     }
     func quotaReportTitle(_ index: Int) -> String {
@@ -32,7 +32,7 @@ extension AppStore {
     func selectedDonutChoice(in choices: [QuotaDonutChoice]) -> QuotaDonutChoice? {
         if let selection = detailQuotaSelection, selection.source == preferences.hubAddress,
            let choice = choices.first(where: { $0.id == selection.id }) { return choice }
-        if let choice = choices.first(where: { !$0.window.isAdditional && ["session", "daily"].contains($0.window.kind) }) { return choice }
+        if let choice = choices.first(where: { !$0.window.isAdditional && $0.window.kind == "weekly" }) { return choice }
         return choices.first
     }
 }
@@ -50,9 +50,11 @@ struct QuotaDonutView: View {
                         ForEach(reports) { Text($0.reportTitle).tag($0.reportID) }
                     }.pickerStyle(.menu)
                 }
+                if choices.filter({ $0.reportID == selected.reportID }).count > 1 {
                 Picker(L10n.text("额度窗口"), selection: Binding(get: { selected.id }, set: { store.detailQuotaSelection = (store.preferences.hubAddress, $0) })) {
                     ForEach(choices.filter { $0.reportID == selected.reportID }) { Text($0.title).tag($0.id) }
                 }.pickerStyle(.menu)
+                }
                 DistributionChart(distribution: Distribution([
                     .init(id: "quota:remaining", name: L10n.text("剩余额度"), value: selected.percent),
                     .init(id: "quota:used", name: L10n.text("已用额度"), value: 100 - selected.percent)
@@ -61,5 +63,18 @@ struct QuotaDonutView: View {
                 DistributionChart(distribution: Distribution([]), quota: true, center: "—", style: store.preferences.chartStyle)
             }
         }
+    }
+}
+
+struct QuotaRingView: View {
+    let percent: Double?
+    let style: ChartStyle
+    var fixedLegendHeight: CGFloat? = nil
+    var body: some View {
+        let value = percent.flatMap { $0.isFinite && (0...100).contains($0) ? $0 : nil }
+        DistributionChart(distribution: Distribution(value.map { [
+            .init(id: "quota:remaining", name: L10n.text("剩余额度"), value: $0),
+            .init(id: "quota:used", name: L10n.text("已用额度"), value: 100 - $0)
+        ] } ?? []), quota: true, center: value.map { $0.formatted(.number.precision(.fractionLength(0...1))) + "%" } ?? "—", style: style, fixedLegendHeight: fixedLegendHeight)
     }
 }

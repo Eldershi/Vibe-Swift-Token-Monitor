@@ -91,15 +91,3 @@ struct ChartInteractionShield: NSViewRepresentable {
 final class ChartInteractionShieldView: NSView {
     override func hitTest(_ point: NSPoint) -> NSView? { nil }
 }
-
-@MainActor extension AppStore {
-    var toolMenuItems: [FloatingMenuItem] {
-        ([""] + tools).map { tool in
-            FloatingMenuItem(title: tool.isEmpty ? L10n.text("全部工具") : tool == "codex" ? "Codex" : tool == "claude" ? "Claude" : tool,
-                             symbol: nil, isSelected: preferences.tool == tool) {
-                self.preferences.tool = tool
-                self.savePreferences()
-            }
-        }
-    }
-}

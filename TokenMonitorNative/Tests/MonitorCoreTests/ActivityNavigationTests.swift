@@ -9,9 +9,20 @@ import SwiftUI
         XCTAssertEqual(Page.restored("活动"), .activity)
         XCTAssertEqual(Page.restored("rate"), .overview)
         XCTAssertEqual(HomeSection.activity.page, .activity)
+        XCTAssertEqual(ActivityDetail.heatmap.destination, .history)
+        XCTAssertEqual(ActivityDetail.trends.destination, .history)
+        XCTAssertEqual(ActivityDetail.models.destination, .models)
+        XCTAssertEqual(ActivityDetail.devices.destination, .devices)
         XCTAssertEqual(HomeSection.trends.page, .activity)
         XCTAssertEqual(Page.allCases.filter { $0 == .activity }.count, 1)
-        XCTAssertEqual(Page.allCases.count, 6)
+        XCTAssertEqual(Page.navigationPages, [.overview, .quota, .activity])
+        XCTAssertEqual(Page.restored("设备"), .activity)
+        XCTAssertEqual(Page.restored("模型"), .activity)
+        XCTAssertEqual(HomeSection.devices.page, .activity)
+        XCTAssertEqual(HomeSection.models.page, .activity)
+        XCTAssertEqual(HomeSection.devices.symbol, "server.rack")
+        XCTAssertEqual(HomeSection.models.symbol, "square.stack.3d.up")
+        XCTAssertEqual(Page.restored("额度换算"), .quota)
         XCTAssertEqual(HomeSection.activity.symbol, "calendar")
         XCTAssertEqual(HomeSection.trends.symbol, "chart.xyaxis.line")
         XCTAssertEqual(Page.activity.symbol, "waveform.path.ecg.text.clipboard")
@@ -37,28 +48,25 @@ import SwiftUI
         }
     }
 
-    func testNativeAgentCheckmarksFollowActionsReopenAndRestoration() throws {
-        _ = NSApplication.shared
+    func testLegacyAgentPreferenceIsIgnoredAndMixedHubDataStaysIntact() throws {
+        for legacyTool in ["", "claude", "codex", "unknown"] {
+            let data = try JSONSerialization.data(withJSONObject: ["schemaVersion": 4, "tool": legacyTool, "period": "today", "pinned": true])
+            let preferences = try JSONDecoder().decode(Preferences.self, from: data)
+            let runtime = RuntimePreferences(preferences)
+            XCTAssertEqual(runtime.period, .today)
+            XCTAssertTrue(runtime.pinned)
+            let saved = try JSONSerialization.jsonObject(with: JSONEncoder().encode(runtime.snapshot)) as! [String: Any]
+            XCTAssertNil(saved["tool"])
+        }
         let store = AppStore(ephemeral: true)
         store.stats = try Stats.decode(Data(#"{"updatedAt":"2026-09-15T00:00:00Z","periods":{"today":{"totalTokens":30,"clients":{"codex":10,"claude":20}},"month":{"totalTokens":30},"allTime":{"totalTokens":30}},"devices":[]}"#.utf8))
         store.preferences.period = .today
-        store.preferences.tool = ""
-        for (tool, expected): (String, Double) in [("", 30), ("codex", 10), ("claude", 20), ("", 30)] {
-            let index = ([""] + store.tools).firstIndex(of: tool)!
-            let menu = FloatingMenuItem.makeMenu(store.toolMenuItems)
-            menu.performActionForItem(at: index)
-            XCTAssertEqual(store.preferences.tool, tool)
-            XCTAssertEqual(store.selectedTokens, expected)
-            let reopened = FloatingMenuItem.makeMenu(store.toolMenuItems)
-            XCTAssertEqual(reopened.items.filter { $0.state == .on }.count, 1)
-            XCTAssertEqual(reopened.items[index].state, .on)
-            XCTAssertTrue(reopened.items.allSatisfy { $0.image == nil })
-            let restored = try JSONDecoder().decode(Preferences.self, from: JSONEncoder().encode(store.preferences.snapshot))
-            let other = AppStore(ephemeral: true)
-            other.stats = store.stats; other.preferences.tool = restored.tool
-            other.reconcileToolSelection()
-            XCTAssertEqual(FloatingMenuItem.makeMenu(other.toolMenuItems).items[index].state, .on)
-        }
+        XCTAssertEqual(store.selectedTokens, 10)
+        XCTAssertEqual(store.todayTokens, 10)
+        XCTAssertEqual(store.stats?.periods["today"]?.clients?["claude"], 20)
+        XCTAssertEqual(store.stats?.periods["today"]?.totalTokens, 30)
+        store.preferences.period = .month
+        XCTAssertNil(store.selectedTokens, "An aggregate without Codex attribution must not become Codex usage")
     }
 
     func testShieldClearsBothChartsAndLeavesNativeClicksUntouched() throws {

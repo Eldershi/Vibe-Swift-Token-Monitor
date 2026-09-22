@@ -3,16 +3,19 @@ import Security
 import MonitorCore
 
 enum Identity {
-    static var isBeta: Bool { Bundle.main.bundleIdentifier == "local.tokenmonitor.native.beta" }
+    static var isBeta: Bool { ["local.tokenmonitor.native.beta", "local.tokenmonitor.native.beta2"].contains(Bundle.main.bundleIdentifier ?? "") }
+    static var isNativeBeta2: Bool { Bundle.main.bundleIdentifier == "local.tokenmonitor.native.beta2" }
+    static var servicePlist: String { isNativeBeta2 ? "local.tokenmonitor.native.beta2.backend.plist" : "local.tokenmonitor.native.beta.backend.plist" }
     static var version: String {
         Bundle.main.object(forInfoDictionaryKey: "TokenMonitorReleaseVersion") as? String
             ?? Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
             ?? L10n.text("开发版本")
     }
-    static var bundleID: String { isBeta ? "local.tokenmonitor.native.beta" : "local.tokenmonitor.native" }
-    static var name: String { isBeta ? "Token Monitor Native Beta" : "Token Monitor Native" }
+    static var bundleID: String { isNativeBeta2 ? "local.tokenmonitor.native.beta2" : isBeta ? "local.tokenmonitor.native.beta" : "local.tokenmonitor.native" }
+    static var storageName: String { isNativeBeta2 ? "Token Monitor Native Beta 2" : isBeta ? "Token Monitor Native Beta" : "Token Monitor Native" }
+    static var name: String { isNativeBeta2 ? "Token Monitor" : storageName }
     static var directory: URL {
-        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent(name, isDirectory: true)
+        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent(storageName, isDirectory: true)
     }
 }
 enum Keychain {
@@ -39,15 +42,6 @@ enum Keychain {
             status = SecItemAdd(add as CFDictionary, nil)
         }
         guard status == errSecSuccess else { throw Failure(status: status) }
-    }
-    static func authorizeClaude() throws {
-        let process = Process()
-        process.executableURL = Bundle.main.bundleURL.appendingPathComponent("Contents/MacOS/TokenMonitorBackend")
-        process.arguments = ["--authorize-claude"]
-        process.standardOutput = FileHandle.nullDevice
-        process.standardError = FileHandle.nullDevice
-        try process.run(); process.waitUntilExit()
-        guard process.terminationStatus == 0 else { throw Failure(status: errSecAuthFailed) }
     }
     struct Failure: LocalizedError {
         let status: OSStatus

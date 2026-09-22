@@ -1,49 +1,52 @@
 <p align="center">
-  <img src="docs/assets/app-icon.png" width="128" height="128" alt="Vibe Swift Token Monitor 应用图标">
+  <img src="docs/assets/app-icon.png" width="128" height="128" alt="Token Monitor app icon">
 </p>
 
 # Vibe Swift Token Monitor
 
 **简体中文 · [English](README.en.md)**
 
-macOS 原生用量监视器，集中查看 Codex 用量、账号额度与活动历史。内置独立后台，无需安装 Node.js 或运行原 Electron 应用。
+专为 Codex 打造的原生 macOS 用量与额度监视器。用一个小窗口查看本机与多设备用量、账号额度、模型分布和活动历史。
 
-## 下载
+0.7.0 将采集后台全面迁移到 Swift，应用无需 Node.js、Tokscale 或 Electron，退出界面后也能继续采集。
 
-### [⬇ 下载最新版 0.6.0 · Apple Silicon](https://github.com/Eldershi/Vibe-Swift-Token-Monitor/releases/download/v0.6.0/Token-Monitor-Native-0.6.0-41-arm64.zip)
+## 下载 0.7.0
 
-**macOS 26+ · Apple Silicon · 构建 41**
+**[下载 DMG](https://github.com/Eldershi/Vibe-Swift-Token-Monitor/releases/download/v0.7.0/Token-Monitor-Native-0.7.0-66-arm64.dmg)** · [下载 ZIP](https://github.com/Eldershi/Vibe-Swift-Token-Monitor/releases/download/v0.7.0/Token-Monitor-Native-0.7.0-66-arm64.zip) · [SHA-256](https://github.com/Eldershi/Vibe-Swift-Token-Monitor/releases/download/v0.7.0/SHA256SUMS) · [更新说明](https://github.com/Eldershi/Vibe-Swift-Token-Monitor/releases/tag/v0.7.0)
 
-[更新说明](https://github.com/Eldershi/Vibe-Swift-Token-Monitor/releases/latest) · [SHA-256 校验文件](https://github.com/Eldershi/Vibe-Swift-Token-Monitor/releases/download/v0.6.0/SHA256SUMS)
+Apple Silicon · macOS 26 及以上 · 构建 66 · 简体中文 / English
 
-当前主要针对 Codex，其他工具仅实验适配。项目仍处于基础验证阶段，尚未公证，暂不推荐普通用户直接使用；目前实际测试系统为 macOS 27。
+当前提供 ad-hoc 签名，尚未公证；实际构建与运行验证使用 macOS 27，macOS 26 真机验收尚未完成。
 
-## 功能
+## 你可以看到什么
 
-- **用量与额度**：过去 24 小时、过去 30 天和最近 24 个月的模型与设备明细，以及已配置账号的可用额度。
-- **动态活动历史**：小时、日、月趋势随范围切换；热力图与明细保留缺失数据和真实零值的区别。
-- **圆环与配色**：模型、设备和额度圆环支持圆角、悬停放大、推荐色板及按对象保存的自定义颜色。
-- **额度消耗归因**：结合当前额度窗口、已记录 Token 与价格权重，估算本周期各设备和模型的已用额度占比。
-- **可定制界面**：固定 320 pt 内容宽度、栏目显隐与排序、菜单栏指标和主题色；支持简体中文与英语。
-- **独立采集与 Hub**：关闭界面后后台可继续采集，也可接入已有 Hub 查看多设备汇总。
-- **确认后更新**：支持 GitHub 正式版本检查；自动检查默认关闭，下载安装由用户确认。
+- **总览**：Codex 用量、额度、设备与模型摘要，可调整栏目顺序、显隐和配色。
+- **活动**：模型与设备圆环、热力图、小时 / 日 / 月趋势，以及完整分项和活动明细。
+- **额度**：官方窗口的已用与剩余比例、设备分摊估算、各设备实际累计 Token，三种图表切换查看。
+- **周期记录**：连接支持周期接口的扩展 Hub 后，查看依据连续额度观测推导的周期边界；旧 Hub 仍可查看基本统计和额度。
+- **菜单栏**：默认每周剩余额度圆环与百分比，可自选今日 Token、短期额度和显示样式。
+- **本机定制**：固定 320 pt 小窗、浅色 / 深色外观、独立图表颜色与显示别名；别名不改变 Hub 设备标识。
 
-费用为 **API 等价估算**，不是订阅账单。本项目并非 OpenAI 官方应用。
+圆环和柱图通过描边显示悬停状态，详情保留完整读数。缺失、过期和真实零值分别呈现。
 
 ## 开始使用
 
-1. 下载并解压，将应用移入“应用程序”文件夹；升级前退出旧界面并保留旧副本。
-2. 打开应用，按需允许后台运行，等待首次扫描。
-3. 在设置 → 数据选择本机采集，或配置已有 Hub。账号额度失效时，在原工具重新登录。
+1. 下载 DMG 或 ZIP，将 **Token Monitor.app** 放入“应用程序”。
+2. 打开应用，在设置 → 数据按需启用后台，等待第一次扫描 Codex 日志。
+3. 如需多设备汇总，填写已有 Hub 的地址与密钥，验证连接并选择本机已有的设备记录。
 
-0.5.1 及更早版本请手动下载升级；0.5.2 起可在设置 → 关于检查后续更新。为兼容已有数据和后台，应用名称及安装身份仍沿用原 Beta 通道。
+**从 0.6 或更早版本升级：先停用旧版 Hub 上传和后台，再退出旧版，手动安装 0.7.0。** 新版使用独立数据目录，需要重新配置连接；不要删除旧同步基线或让同一设备有两个上传者。0.7.0-beta.2 使用者保留原数据目录，替换前同样先停止旧后台。[完整升级说明](docs/USAGE.md#安装与升级)
 
-[使用与卸载](docs/USAGE.md) · [从源码构建](docs/BUILDING.md) · [反馈问题](https://github.com/Eldershi/Vibe-Swift-Token-Monitor/issues)
+[使用说明](docs/USAGE.md) · [构建与架构](docs/BUILDING.md) · [反馈问题](https://github.com/Eldershi/Vibe-Swift-Token-Monitor/issues)
 
-## 来源与许可
+## 数据与边界
 
-本项目是独立维护的 macOS 原生衍生实现，复用 [Javis603/token-monitor](https://github.com/Javis603/token-monitor) v0.56.0 的部分 MIT 后台，以及 Node.js、Tokscale 和 Sparkle；不包含 Electron 前端，也不是上游官方客户端。
+本机读取 Codex 日志；账号额度读取已有 Codex 登录状态，不自动续期凭据或启动模型会话。Hub 同步为可选功能，发送统计、模型、设备信息及匿名账号额度观测，不发送提示词、会话正文或登录凭据。
 
-[第三方声明](TokenMonitorNative/THIRD_PARTY_NOTICES.md) · [后台来源](TokenMonitorNative/Backend/UPSTREAM.md)
+额度分摊基于近期完整日的模型费用权重，属于近似估算，不是逐次请求的实际额度消耗，也不预测剩余 Token。费用字段是 API 等价估算，不是订阅账单；原生采集不为缺少价格依据的记录编造费用。周期推导不代表捕获了每次百分比归零。
 
-上游版权与许可证保留；本仓库尚未为新增代码另行指定统一开源许可证。
+## 项目关系与许可
+
+受 [Javis603/token-monitor](https://github.com/Javis603/token-monitor) 启发，独立开发和维护原生 Swift 客户端与采集后台，兼容其 **v0.56.0 Hub API 基线**。兼容按实际接口和能力判断，不承诺所有上游版本或扩展均通用。
+
+0.7.0 不再分发原项目的 Node 后台或 Tokscale。旧版本曾复用的 MIT 代码可在历史标签中查阅，其版权声明保留；Sparkle、系统符号和设备图标的来源见[第三方声明](TokenMonitorNative/THIRD_PARTY_NOTICES.md)。本项目非 OpenAI 或原项目作者的官方客户端，新增代码尚未另行指定统一开源许可证。

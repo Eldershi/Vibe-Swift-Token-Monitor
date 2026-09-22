@@ -58,9 +58,8 @@ health.json
 !TokenMonitorNative/Tests/MonitorCoreTests/Fixtures/history.json
 !TokenMonitorNative/Tests/MonitorCoreTests/Fixtures/health.json
 
-# Bundled beta runtime downloads and npm installation
+# Development dependencies
 node_modules/
-TokenMonitorNative/Backend/runtime/
 
 # Local development instructions, plans and acceptance history
 /AGENTS.md
@@ -74,3 +73,6 @@ TokenMonitorNative/Backend/runtime/
 /TokenMonitorNative/verification/
 /TokenMonitorNative/下一版改进清单.md
 /TokenMonitorNative/验收记录.md
+
+# Mobile experiments remain local and are excluded from macOS releases
+/TokenMonitorMobile/

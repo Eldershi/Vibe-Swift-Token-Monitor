@@ -8,6 +8,8 @@ import ServiceManagement
     @State private var store = AppStore.shared
     var body: some Scene {
         Settings { SettingsView(store: store).frame(width: 540, height: 520) }
+        .restorationBehavior(.disabled)
+        .defaultLaunchBehavior(.suppressed)
         .commands {
             CommandGroup(after: .newItem) {
                 Button(L10n.text("显示小窗口")) { PanelController.shared.show() }
@@ -16,7 +18,7 @@ import ServiceManagement
             }
         }
         MenuBarExtra {
-            Text(L10n.text("今日 %@", String(describing: store.selectedToolTitle)))
+            Text(L10n.text("今日 %@", "Codex"))
             Text("\(DisplayFormat.tokens(store.todayTokens)) tokens")
             Text(store.status)
             Divider()
@@ -40,7 +42,7 @@ import ServiceManagement
                 do {
                     try GitHubUpdater.verifyConfiguration()
                     let release = try await GitHubReleaseClient.latest(using: URLSession(configuration: .ephemeral))
-                    print("GitHub update check: latest=\(release.tag_name), newer=\(release.isNewer(than: Identity.version)), signed-feed=\(release.appcastURL != nil)")
+                    print("GitHub update check: latest=\(release.tag_name), newer=\(release.isNewer(than: Identity.version)), signed-feed=\(release.nativeAppcastURL != nil)")
                     exit(0)
                 } catch { fputs("GitHub update check failed.\n", stderr); exit(1) }
             }
@@ -70,7 +72,7 @@ import ServiceManagement
         }
         if Identity.isBeta, args.contains("--beta-unregister") || args.contains("--beta-register") || args.contains("--beta-service-status") {
             Task { @MainActor in
-                let service = SMAppService.agent(plistName: "local.tokenmonitor.native.beta.backend.plist")
+                let service = SMAppService.agent(plistName: Identity.servicePlist)
                 do {
                     if args.contains("--beta-unregister"), service.status != .notRegistered { try await service.unregister() }
                     if args.contains("--beta-register"), (service.status == .notRegistered || service.status == .notFound) { try service.register() }
@@ -110,6 +112,8 @@ import ServiceManagement
         observers.append(center.addObserver(forName: NSWorkspace.willSleepNotification, object: nil, queue: .main) { _ in Task { @MainActor in AppStore.shared.sleep() } })
         observers.append(center.addObserver(forName: NSWorkspace.didWakeNotification, object: nil, queue: .main) { _ in Task { @MainActor in AppStore.shared.wake() } })
     }
+    func applicationShouldSaveSecureApplicationState(_ app: NSApplication) -> Bool { false }
+    func applicationShouldRestoreSecureApplicationState(_ app: NSApplication) -> Bool { false }
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
     func applicationShouldOpenUntitledFile(_ sender: NSApplication) -> Bool { false }
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
@@ -136,6 +140,7 @@ import ServiceManagement
 @MainActor final class PanelController: NSObject, NSToolbarDelegate {
     static let shared = PanelController()
     private var panel: NSPanel?
+    private var presentedPage = Page.overview
     var periodDiagnostic: ((Int) -> Void)?
     var verificationPeriodItem: NSToolbarItem? {
         panel?.toolbar?.items.first(where: { $0.itemIdentifier == periodID })
@@ -147,6 +152,10 @@ import ServiceManagement
     }
     func show() {
         if panel == nil {
+            let args = ProcessInfo.processInfo.arguments
+            if !args.contains("--verify-period-animation"), !args.contains("--preview-fixture") {
+                presentedPage = Page.restored(UserDefaults.standard.string(forKey: "compactPage") ?? Page.overview.rawValue)
+            }
             let p = CompactPanel(contentRect: NSRect(x: 0, y: 0, width: CompactPanel.contentWidth, height: 460), styleMask: [.titled, .closable, .resizable, .miniaturizable, .fullSizeContentView], backing: .buffered, defer: false)
             p.title = Identity.name
             p.titleVisibility = .hidden
@@ -172,9 +181,18 @@ import ServiceManagement
         if panel?.isVisible != true { AppStore.shared.historyPresentationID = UUID() }
         updatePin(); panel?.makeKeyAndOrderFront(nil); NSApp.activate(ignoringOtherApps: true)
     }
+    func updatePage(_ page: Page) {
+        presentedPage = page
+        guard let toolbar = panel?.toolbar else { return }
+        if page == .quota {
+            if let index = toolbar.items.firstIndex(where: { $0.itemIdentifier == periodID }) { toolbar.removeItem(at: index) }
+        } else if !toolbar.items.contains(where: { $0.itemIdentifier == periodID }) {
+            toolbar.insertItem(withItemIdentifier: periodID, at: toolbar.items.count)
+        }
+    }
     private let periodID = NSToolbarItem.Identifier("NativePeriod")
     func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] { [.flexibleSpace, periodID] }
-    func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] { [.flexibleSpace, periodID] }
+    func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] { presentedPage == .quota ? [.flexibleSpace] : [.flexibleSpace, periodID] }
     func toolbar(_ toolbar: NSToolbar, itemForItemIdentifier id: NSToolbarItem.Identifier, willBeInsertedIntoToolbar flag: Bool) -> NSToolbarItem? {
         guard id == periodID else { return nil }
         if ProcessInfo.processInfo.arguments.contains("--verify-period-animation"),

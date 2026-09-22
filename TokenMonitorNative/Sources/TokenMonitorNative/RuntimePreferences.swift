@@ -7,16 +7,15 @@ import MonitorCore
     var schemaVersion = 4
     var hubAddress = "http://127.0.0.1:17321"
     var connected = false
-    var tool = "codex" { didSet { if oldValue != tool { selectionChanged?() } } }
     var period = Period.month { didSet { if oldValue != period { selectionChanged?() } } }
     var pinned = false
     var automaticallyCheckForUpdates = false
     var showPanelOnLaunch = true
     var chartStyle = ChartStyle()
-    var menuBarTokens = true
-    var menuBarShortQuota = true
-    var menuBarWeeklyQuota = false
-    var menuBarStyle = MenuBarStyle.text
+    var menuBarTokens = false
+    var menuBarShortQuota = false
+    var menuBarWeeklyQuota = true
+    var menuBarStyle = MenuBarStyle.rings
     var modelSortByCost = false { didSet { if oldValue != modelSortByCost { selectionChanged?() } } }
     var homeSections = HomeSection.allCases
     var hiddenHomeSections = Set<HomeSection>([.devices])
@@ -34,7 +33,6 @@ import MonitorCore
         schemaVersion = value.schemaVersion
         hubAddress = value.hubAddress
         connected = value.connected
-        tool = value.tool
         period = value.period
         pinned = value.pinned
         showPanelOnLaunch = value.showPanelOnLaunch
@@ -57,7 +55,6 @@ import MonitorCore
         value.schemaVersion = schemaVersion
         value.hubAddress = hubAddress
         value.connected = connected
-        value.tool = tool
         value.period = period
         value.pinned = pinned
         value.showPanelOnLaunch = showPanelOnLaunch

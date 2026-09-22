@@ -11,7 +11,7 @@ final class TrendAccessibilityTests: XCTestCase {
     private func sequence(start: Date, count: Int, component: Calendar.Component) -> [TrendPoint] {
         (0..<count).map { TrendPoint(date: calendar.date(byAdding: component, value: $0, to: start)!, tokens: Double($0), cost: nil) }
     }
-    func testAxisUsesCalendarBoundariesAndKeepsLabelsContained() {
+    func testAxisUsesCalendarBoundariesWithoutCompressingEdgeSpacing() {
         let hours = sequence(start: date(2026, 9, 15, 18), count: 24, component: .hour)
         let days = sequence(start: date(2026, 8, 18), count: 30, component: .day)
         let months = sequence(start: date(2024, 10, 1), count: 24, component: .month)
@@ -19,14 +19,21 @@ final class TrendAccessibilityTests: XCTestCase {
         XCTAssertEqual(TrendAxisLayout.indices(points: days, granularity: .day, calendar: calendar), [14, 28])
         XCTAssertEqual(TrendAxisLayout.indices(points: months, granularity: .month, calendar: calendar), [3, 15])
         for points in [hours, days, months] {
-            for index in points.indices {
-                let placement = TrendAxisLayout.labelPlacement(index: index, count: points.count, width: 240, labelWidth: 54)
-                XCTAssertGreaterThanOrEqual(placement.center, 27)
-                XCTAssertLessThanOrEqual(placement.center, 213)
+            for width: CGFloat in [140, 193, 240] {
+                let positions = points.indices.map {
+                    TrendAxisLayout.labelPlacement(index: $0, count: points.count, width: width, labelWidth: 40)
+                }
+                for index in positions.indices {
+                    XCTAssertEqual(positions[index].alignment, .center)
+                    // The plot has a 20pt gutter on both sides for uncompressed 40pt labels.
+                    XCTAssertGreaterThanOrEqual(positions[index].center + 20 - 20, 0)
+                    XCTAssertLessThanOrEqual(positions[index].center + 20 + 20, width + 40)
+                    if index > 0 {
+                        XCTAssertEqual(positions[index].center - positions[index - 1].center, width / CGFloat(points.count), accuracy: 1e-9)
+                    }
+                }
             }
         }
-        XCTAssertEqual(TrendAxisLayout.labelPlacement(index: 0, count: 24, width: 240, labelWidth: 54).alignment, .leading)
-        XCTAssertEqual(TrendAxisLayout.labelPlacement(index: 23, count: 24, width: 240, labelWidth: 54).alignment, .trailing)
         XCTAssertEqual(TrendAxisFormatting.hour(date(2026, 9, 16, 0), timeZone: calendar.timeZone), "12 AM")
         XCTAssertEqual(TrendAxisFormatting.hour(date(2026, 9, 16, 6), timeZone: calendar.timeZone), "6 AM")
         XCTAssertEqual(TrendAxisFormatting.hour(date(2026, 9, 16, 12), timeZone: calendar.timeZone), "12 PM")

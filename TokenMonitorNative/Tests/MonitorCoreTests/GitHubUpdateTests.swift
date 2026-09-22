@@ -30,6 +30,23 @@ final class GitHubUpdateTests: XCTestCase {
             XCTAssertNil(try release("v0.6.0", url: url).appcastURL)
         }
     }
+    func testNativeFeedIsSeparateFromLegacyIdentityAndRejectsOtherLocations() throws {
+        let root = "https://github.com/Eldershi/Vibe-Swift-Token-Monitor/releases/download/v0.7.0/"
+        func native(_ url: String) throws -> GitHubRelease {
+            let value: [String: Any] = ["tag_name": "v0.7.0", "draft": false, "prerelease": false,
+                "assets": [["name": "appcast-native.xml", "browser_download_url": url]]]
+            return try JSONDecoder().decode(GitHubRelease.self, from: JSONSerialization.data(withJSONObject: value))
+        }
+        let current = try native(root + "appcast-native.xml")
+        XCTAssertNotNil(current.nativeAppcastURL)
+        XCTAssertNil(current.appcastURL)
+        XCTAssertNil(try release("v0.7.0").nativeAppcastURL)
+        for invalid in [root + "appcast.xml", root.replacingOccurrences(of: "https:", with: "http:") + "appcast-native.xml",
+                        root.replacingOccurrences(of: "v0.7.0", with: "v0.6.0") + "appcast-native.xml",
+                        root.replacingOccurrences(of: "Eldershi", with: "other") + "appcast-native.xml"] {
+            XCTAssertNil(try native(invalid).nativeAppcastURL)
+        }
+    }
     @MainActor func testAutomaticCheckPreferenceDefaultsOffAndPersists() throws {
         let old = try JSONDecoder().decode(Preferences.self, from: Data(#"{"schemaVersion":3}"#.utf8))
         XCTAssertFalse(old.automaticallyCheckForUpdates)

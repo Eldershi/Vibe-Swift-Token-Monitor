@@ -22,6 +22,14 @@ public struct Distribution: Equatable, Sendable {
             items = Array(valid.prefix(count)) + [DistributionItem(id: otherID, name: L10n.text("其他"), value: valid.dropFirst(count).reduce(0) { $0 + $1.value })]
         } else { items = valid }
     }
+    private init(items: [DistributionItem], total: Double) { self.items = items; self.total = total }
+    public func mapNames(_ name: (DistributionItem) -> String) -> Distribution {
+        Distribution(items: items.map { .init(id: $0.id, name: name($0), value: $0.value) }, total: total)
+    }
+    public static func compactActivity(_ input: [DistributionItem], otherID: String) -> Distribution {
+        let valid = input.filter { $0.value.isFinite && $0.value > 0 }
+        return Distribution(valid, limit: valid.count <= 4 ? 4 : 3, otherID: otherID)
+    }
     public func fraction(_ item: DistributionItem) -> Double { total > 0 ? item.value / total : 0 }
 }
 

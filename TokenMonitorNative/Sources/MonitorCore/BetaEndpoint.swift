@@ -6,6 +6,15 @@ public struct BetaEndpoint: Codable, Equatable, Sendable {
     public let pid: Int
     public let address: String
     public let secret: String
+    public static func load(from url: URL) throws -> BetaEndpoint {
+        let attributes = try FileManager.default.attributesOfItem(atPath: url.path)
+        guard (attributes[.ownerAccountID] as? NSNumber)?.uint32Value == getuid(),
+              (attributes[.posixPermissions] as? NSNumber)?.intValue == 0o600,
+              attributes[.type] as? FileAttributeType == .typeRegular else { throw HubError.disconnected }
+        let endpoint = try JSONDecoder().decode(BetaEndpoint.self, from: Data(contentsOf: url))
+        _ = try endpoint.connection()
+        return endpoint
+    }
     public func connection() throws -> HubConnection {
         guard version == 1, pid > 0, UUID(uuidString: session) != nil,
               let url = URLComponents(string: address), url.scheme == "http", url.host == "127.0.0.1",
@@ -36,6 +45,7 @@ public struct BetaProviderStatus: Codable, Equatable, Sendable {
 
 public struct BetaSyncStatus: Codable, Equatable, Sendable {
     public let enabled: Bool
+    public let uploadEnabled: Bool?
     public let configured: Bool
     public let address: String
     public let deviceId: String

@@ -1,8 +1,10 @@
 import SwiftUI
 import MonitorCore
+import Darwin
 
 struct BetaHubSettings: View {
     @Environment(\.settingsControlTint) private var controlTint
+    @Bindable var store = AppStore.shared
     @Bindable var backend = BetaBackend.shared
     @State private var address = ""
     @State private var secret = ""
@@ -13,6 +15,17 @@ struct BetaHubSettings: View {
     @State private var loadedConfiguration = false
     @State private var validatedAddress = ""
     @State private var validatedSecret = ""
+    private var localHostnames: Set<String> {
+        var name = [CChar](repeating: 0, count: 256)
+        let systemName = name.withUnsafeMutableBufferPointer { buffer -> String in
+            guard let base = buffer.baseAddress, gethostname(base, buffer.count) == 0 else { return "" }
+            return String(cString: base)
+        }
+        return Set([ProcessInfo.processInfo.hostName, systemName])
+    }
+    private var localDevices: [Device] {
+        devices.filter { $0.hostname.map(localHostnames.contains) == true }
+    }
     var body: some View {
         Group {
             Section(L10n.text("Hub 同步")) {
@@ -20,20 +33,26 @@ struct BetaHubSettings: View {
                     Text(L10n.text("共享 Hub 全部设备")).tag(false)
                     Text(L10n.text("仅本机")).tag(true)
                 }.tint(controlTint).accentColor(controlTint)
-                LabeledContent(L10n.text("同步状态"), value: backend.syncMessage)
-                LabeledContent(L10n.text("最后成功同步"), value: backend.snapshot?.sync?.lastSuccess.flatMap(DateCodec.parse)?.formatted(date: .abbreviated, time: .standard) ?? L10n.text("尚未同步"))
+                LabeledContent(Identity.isNativeBeta2 && backend.snapshot?.sync?.uploadEnabled != true ? L10n.text("读取状态") : L10n.text("同步状态"), value: backend.syncMessage)
+                LabeledContent(Identity.isNativeBeta2 && backend.snapshot?.sync?.uploadEnabled != true ? L10n.text("最后成功读取") : L10n.text("最后成功同步"), value: backend.snapshot?.sync?.lastSuccess.flatMap(DateCodec.parse)?.formatted(date: .abbreviated, time: .standard) ?? L10n.text("尚未同步"))
                 TextField(L10n.text("Hub 地址"), text: $address).disabled(busy)
                 SecureField(L10n.text("共享密钥"), text: $secret).disabled(busy)
                 Button(L10n.text("验证连接并读取设备")) { Task { await validate() } }.disabled(busy || secret.isEmpty)
                 if !devices.isEmpty {
                     Picker(L10n.text("此 Mac 对应的已有设备"), selection: $deviceID) {
                         Text(L10n.text("请选择设备")).tag("")
-                        ForEach(devices) { Text($0.id).tag($0.id) }
+                        ForEach(Identity.isNativeBeta2 ? localDevices : devices) {
+                            Text(store.preferences.chartStyle.displayName(id: "device:" + $0.id, fallback: $0.id)).tag($0.id)
+                        }
                     }.tint(controlTint).accentColor(controlTint)
-                    Button(L10n.text("保存并启用同步")) { Task { await enable() } }.disabled(busy || deviceID.isEmpty)
+                    Button(L10n.text("保存并启用同步")) { Task { await enable(upload: Identity.isNativeBeta2) } }
+                        .disabled(busy || deviceID.isEmpty)
+                }
+                if !devices.isEmpty && Identity.isNativeBeta2 {
+                    Button(L10n.text("保存并启用只读Hub")) { Task { await enable(upload: false) } }.disabled(busy)
                 }
                 if backend.snapshot?.sync?.enabled == true {
-                    Button(L10n.text("停用 Hub 同步")) { Task {
+                    Button(Identity.isNativeBeta2 && backend.snapshot?.sync?.uploadEnabled != true ? L10n.text("停用只读Hub") : L10n.text("停用 Hub 同步")) { Task {
                         do { try await backend.configureHub(enabled: false) } catch { message = error.localizedDescription }
                     } }.disabled(busy)
                 }
@@ -62,14 +81,20 @@ struct BetaHubSettings: View {
             validatedAddress = connection.baseURL.absoluteString; validatedSecret = secret
             address = validatedAddress
             devices = stats.devices
+            if Identity.isNativeBeta2 {
+                let local = localDevices
+                if local.count == 1 { deviceID = local[0].id }
+            }
             message = L10n.text("连接有效")
         } catch { message = error.localizedDescription; devices = [] }
     }
-    private func enable() async {
+    private func enable(upload: Bool) async {
         busy = true; defer { busy = false }
         do {
-            try await backend.configureHub(address: address, secret: secret, deviceId: deviceID, enabled: true)
-            secret = ""; validatedSecret = ""; devices = []; message = L10n.text("已保存并启用")
+            try await backend.configureHub(address: address, secret: secret, deviceId: deviceID,
+                                           enabled: true, uploadEnabled: upload)
+            secret = ""; validatedSecret = ""; devices = []
+            message = Identity.isNativeBeta2 && !upload ? L10n.text("已保存并启用只读Hub") : L10n.text("已保存并启用")
         } catch { message = error.localizedDescription }
     }
 }

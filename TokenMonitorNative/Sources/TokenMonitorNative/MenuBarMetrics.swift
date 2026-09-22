@@ -1,4 +1,5 @@
 import AppKit
+import CoreText
 import SwiftUI
 import MonitorCore
 
@@ -12,8 +13,8 @@ extension AppStore {
         let provider = menuQuotaReportIndex.map { quotaReports[$0] }
         return [false, true].compactMap { weekly in
             guard weekly ? preferences.menuBarWeeklyQuota : preferences.menuBarShortQuota else { return nil }
-            let window = provider.flatMap { QuotaPresentation.regularWindow($0, weekly: weekly) }
-            let percent = window.flatMap { window in provider.flatMap { QuotaPresentation.percent(window, provider: $0, now: statusClock, threshold: quotaThreshold) } }
+            guard let window = provider.flatMap({ QuotaPresentation.regularWindow($0, weekly: weekly) }) else { return nil }
+            let percent = provider.flatMap { QuotaPresentation.percent(window, provider: $0, now: statusClock, threshold: quotaThreshold) }
             return MenuQuotaMetric(label: QuotaPresentation.shortLabel(window, weekly: weekly), percent: percent)
         }
     }
@@ -33,7 +34,7 @@ struct MenuBarMetricsLabel: View {
                 .accessibilityLabel(description)
         } else {
             let text = ([tokens].compactMap { $0 } + metrics.map(\.text)).joined(separator: " ")
-            Label(text.isEmpty ? "" : text + beta, systemImage: "chart.bar.xaxis")
+            Text(text.isEmpty ? "TM" : text + beta)
                 .accessibilityLabel(description.isEmpty ? "Token Monitor" : description)
         }
     }
@@ -51,7 +52,14 @@ struct MenuBarMetricsLabel: View {
         let image = NSImage(size: NSSize(width: max(1, totalWidth), height: 18), flipped: false) { rect in
             var x: CGFloat = 0
             func drawText(_ text: String) {
-                (text as NSString).draw(at: NSPoint(x: x, y: 1), withAttributes: attributes); x += ceil((text as NSString).size(withAttributes: attributes).width)
+                guard !text.isEmpty, let context = NSGraphicsContext.current?.cgContext else { return }
+                let line = CTLineCreateWithAttributedString(NSAttributedString(string: text, attributes: attributes))
+                let ink = CTLineGetImageBounds(line, context)
+                context.saveGState()
+                context.textPosition = CGPoint(x: x, y: rect.midY - ink.midY)
+                CTLineDraw(line, context)
+                context.restoreGState()
+                x += ceil((text as NSString).size(withAttributes: attributes).width)
             }
             if let tokens { drawText(tokens); x += 9 }
             for metric in metrics {
@@ -77,17 +85,13 @@ struct MenuBarSettings: View {
     @Bindable var store: AppStore
     var body: some View {
         Toggle(L10n.text("显示今日 Token"), isOn: $store.preferences.menuBarTokens)
-        Toggle(L10n.text("显示短周期剩余额度"), isOn: $store.preferences.menuBarShortQuota)
+        if store.quotaReports.contains(where: { QuotaPresentation.regularWindow($0, weekly: false) != nil }) {
+            Toggle(L10n.text("显示短周期剩余额度"), isOn: $store.preferences.menuBarShortQuota)
+        }
         Toggle(L10n.text("显示每周剩余额度"), isOn: $store.preferences.menuBarWeeklyQuota)
         Picker(L10n.text("菜单栏样式"), selection: $store.preferences.menuBarStyle) {
             Text(L10n.text("紧凑文字")).tag(MenuBarStyle.text)
             Text(L10n.text("小圆环与百分比")).tag(MenuBarStyle.rings)
-        }
-        if !store.quotaReports.isEmpty {
-            Picker(L10n.text("菜单栏额度来源"), selection: Binding(get: { store.menuQuotaSelection?.source == store.preferences.hubAddress ? store.menuQuotaSelection?.index ?? -1 : -1 }, set: { store.selectMenuQuotaReport($0) })) {
-                Text(L10n.text("自动选择")).tag(-1)
-                ForEach(Array(store.quotaReports.indices), id: \.self) { index in Text(store.quotaReportTitle(index)).tag(index) }
-            }
         }
     }
 }

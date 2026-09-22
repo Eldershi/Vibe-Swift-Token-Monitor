@@ -33,7 +33,7 @@ struct SettingsView: View {
             Tab(L10n.text("布局"), systemImage: "rectangle.grid.1x2") { HomeLayoutSettings(store: store) }
             if Identity.isBeta {
                 Tab(L10n.text("数据"), systemImage: "externaldrive") {
-                    Form { BetaBackendSettings() }.formStyle(.grouped)
+                    Form { BetaBackendSettings(); QuotaCalculationSettings(store: store) }.formStyle(.grouped)
                 }
             } else {
                 Tab(L10n.text("数据"), systemImage: "externaldrive") {

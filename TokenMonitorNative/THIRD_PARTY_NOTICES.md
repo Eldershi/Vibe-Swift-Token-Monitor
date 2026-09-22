@@ -1,12 +1,18 @@
-# Third-party notices and project relationship
+# Third-party notices and provenance
 
-Token Monitor: https://github.com/Javis603/token-monitor (MIT license).
-This is an independently maintained native macOS derivative, not an official client endorsed by the upstream author and not a GitHub fork. It interoperates with the v0.56.0 Hub API. The 0.4.1 client did not bundle Electron or collectors. Version 0.5 bundles a pinned MIT-licensed subset of the upstream shared collectors, account quota readers and Hub; it does not bundle Electron or its branding assets. See Backend/UPSTREAM.md and Backend/vendor/LICENSE. Synthetic fixtures are generated locally from the documented field shapes.
+## Token Monitor
 
-SwiftUI, AppKit, Foundation, Security and Swift Charts are Apple system frameworks. Sparkle 2.10.0 is bundled for signed application updates (MIT license): https://github.com/sparkle-project/Sparkle. Its license is included in Contents/Resources/Licenses/Sparkle.txt. The SwiftPM dependency is pinned in Package.resolved.
+This independently maintained native Swift application is inspired by [Javis603/token-monitor](https://github.com/Javis603/token-monitor) and interoperates with its v0.56.0 Hub API baseline. It is not an official upstream or OpenAI client.
 
-Version 0.5 bundles Node.js 24.19.0 (MIT and incorporated dependency notices, included as Backend/runtime/NODE-LICENSE in the app), Tokscale 4.15.1 with the pinned downstream fork (MIT), and the production npm dependencies identified in Backend/package-lock.json. Their package license files are included in the app. Source and download pins are documented in Backend/UPSTREAM.md, runtime-pin.json and tokscale-pin.json.
+Versions 0.5–0.6 reused MIT-licensed backend modules from upstream commit `2f60827e3028d283969dd74cde5b3f5664220442`. Version 0.7 replaces the bundled Node collector with Swift and removes the obsolete vendored runtime from the current tree. Historical source and its patches remain in the corresponding Git tags. The [upstream MIT license](Resources/TOKEN-MONITOR-LICENSE) is retained for provenance and any derived protocol/implementation work; no claim is made that all project code was created without reference to upstream work.
 
-ReferenceGear is the unmodified gear symbol exported from Apple SF Symbols 7.2 (font version 21.1d1e1). It is included as an Apple symbol asset for this macOS app, subject to Apple’s SF Symbols license; it is not an original project icon or covered by the upstream MIT license.
+## Distributed dependencies and assets
 
-Device OS icons: Icons by [Icons8](https://icons8.com), iOS Filled 96 px PNG assets, subject to the [Icons8 license](https://icons8.com/license), not the upstream MIT license. Source URLs and attribution are included in `DEVICE-ICON-CREDITS.md` in the app resources and `Resources/DEVICE-ICON-CREDITS.md` in source. The About page also links to Icons8.
+- **Sparkle 2.10.0** — [Sparkle](https://github.com/sparkle-project/Sparkle), MIT. Pinned in Package.swift and Package.resolved. The full license is included in the app at `Contents/Resources/Licenses/Sparkle.txt`.
+- **Apple frameworks** — SwiftUI, AppKit, Foundation, Network, Security and other platform frameworks are provided by macOS.
+- **ReferenceGear** — unmodified gear symbol exported from Apple SF Symbols 7.2, subject to Apple's SF Symbols license. It is not covered by the upstream MIT license.
+- **Device icons** — Icons by [Icons8](https://icons8.com), subject to the Icons8 license. [Asset credits](Resources/DEVICE-ICON-CREDITS.md) are included in the app and linked from About.
+
+Node.js, Tokscale, Electron, and npm dependencies are not included in 0.7.0. Their historical distributions retain their own licenses in the corresponding releases and tags.
+
+No unified open-source license has yet been assigned to this repository's new code. The licenses above apply to their respective components.

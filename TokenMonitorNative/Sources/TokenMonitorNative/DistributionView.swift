@@ -9,14 +9,22 @@ struct DistributionChart: View {
     var center: String? = nil
     var tint: Color? = nil
     var style = ChartStyle()
+    var strokeWidth: CGFloat? = nil
+    var legendItems: [DistributionItem]? = nil
+    var fixedLegendHeight: CGFloat? = nil
+    var compactValues = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     private func value(_ amount: Double) -> String {
-        quota ? amount.formatted(.number.precision(.fractionLength(0...1))) + "%" : cost ? DisplayFormat.cost(amount) : DisplayFormat.tokens(amount) + " tokens"
+        quota ? amount.formatted(.number.precision(.fractionLength(0...1))) + "%" : cost ? DisplayFormat.cost(amount) : (compactValues ? DisplayFormat.compact(amount) : DisplayFormat.tokens(amount) + " tokens")
     }
     var body: some View {
+        let distribution = style.named(self.distribution)
+        let legend = (legendItems ?? self.distribution.items).map { item in
+            DistributionItem(id: item.id, name: style.displayName(id: item.id, fallback: item.name), value: item.value)
+        }
         VStack(spacing: 12) {
             ZStack {
-                DonutCanvas(distribution: distribution, cost: cost, quota: quota, style: style)
+                DonutCanvas(distribution: distribution, cost: cost, quota: quota, style: style, strokeWidth: strokeWidth)
                     .accessibilityElement(children: .ignore)
                     .accessibilityLabel(quota ? L10n.text("额度") : cost ? L10n.text("API 等价估算") : L10n.text("Token 用量"))
                     .accessibilityChartDescriptor(DistributionAccessibility(distribution: distribution, cost: cost, quota: quota))
@@ -25,20 +33,22 @@ struct DistributionChart: View {
                         .contentTransition(.numericText(value: distribution.total))
                         .animation(reduceMotion ? nil : DataMotion.animation, value: distribution.total)
                         .clipped()
-                    if quota || cost { Text(quota ? L10n.text("剩余额度") : L10n.text("API 等价估算")).font(.caption).foregroundStyle(.secondary) }
+                    if quota || cost { Text(quota ? style.displayName(id: "quota:remaining", fallback: L10n.text("剩余额度")) : L10n.text("API 等价估算")).font(.caption).foregroundStyle(.secondary) }
                 }.multilineTextAlignment(.center).frame(width: 108, alignment: .center).allowsHitTesting(false).accessibilityHidden(true)
             }.frame(width: 184, height: 184)
+            VStack(spacing: 8) {
             if distribution.items.isEmpty { Text(L10n.text("无数据")).font(.caption).foregroundStyle(.secondary) }
-            ForEach(distribution.items) { item in
+            ForEach(legend) { item in
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
                     Circle().fill(Color(nsColor: NSColor(style.color(id: item.id, activeIDs: distribution.items.map(\.id)))))
                         .frame(width: 7, height: 7).accessibilityHidden(true)
-                    Text(item.name).lineLimit(2)
+                    Text(item.name).lineLimit(1)
                     Spacer(minLength: 4)
                     Text(value(item.value)).monospacedDigit()
                     if !quota { Text(distribution.fraction(item).formatted(.percent.precision(.fractionLength(0...1)))).foregroundStyle(.secondary).monospacedDigit() }
                 }.font(.caption).accessibilityElement(children: .combine)
             }
+            }.frame(height: fixedLegendHeight, alignment: .bottom)
         }.frame(maxWidth: .infinity)
     }
 }
@@ -68,12 +78,13 @@ struct DistributionAccessibility: AXChartDescriptorRepresentable {
 }
 
 enum DonutGeometry {
-    static func paths(_ distribution: Distribution, size: NSSize) -> [CGPath] {
-        paths(distribution.items.map { distribution.fraction($0) }, size: size)
+    static func paths(_ distribution: Distribution, size: NSSize, strokeWidth: CGFloat? = nil) -> [CGPath] {
+        paths(distribution.items.map { distribution.fraction($0) }, size: size, strokeWidth: strokeWidth)
     }
-    static func paths(_ fractions: [Double], size: NSSize) -> [CGPath] {
+    static func paths(_ fractions: [Double], size: NSSize, strokeWidth: CGFloat? = nil) -> [CGPath] {
         let center = CGPoint(x: size.width / 2, y: size.height / 2)
-        let outer = min(size.width, size.height) / 2 - 9, inner = outer * 0.68
+        let outer = min(size.width, size.height) / 2 - 9
+        let inner = max(0, outer - (strokeWidth ?? outer * 0.32))
         var angle = -Double.pi / 2
         let positive = fractions.filter { $0 > 0 }.count
         let total = fractions.reduce(0, +)
@@ -152,14 +163,15 @@ enum DonutTransition {
     }
 }
 
-private struct DonutCanvas: NSViewRepresentable {
+struct DonutCanvas: NSViewRepresentable {
     let distribution: Distribution
     let cost: Bool
     let quota: Bool
     let style: ChartStyle
+    var strokeWidth: CGFloat? = nil
     func makeNSView(context: Context) -> DonutNativeView { DonutNativeView() }
     func updateNSView(_ view: DonutNativeView, context: Context) {
-        view.configure(distribution, cost: cost, quota: quota, style: style)
+        view.configure(distribution, cost: cost, quota: quota, style: style, strokeWidth: strokeWidth)
     }
 }
 
@@ -170,6 +182,7 @@ final class DonutNativeView: NSView {
     private var cost = false
     private var quota = false
     private var style = ChartStyle()
+    private var strokeWidth: CGFloat?
     private var accent = NSColor.secondaryLabelColor
     private var paths: [CGPath] = []
     private var geometrySize = NSSize.zero
@@ -194,11 +207,11 @@ final class DonutNativeView: NSView {
         dataAnimation?.invalidate()
         for observer in observers { NotificationCenter.default.removeObserver(observer) }
     }
-    func configure(_ value: Distribution, cost: Bool, quota: Bool, style: ChartStyle) {
-        guard distribution != value || self.cost != cost || self.quota != quota || self.style != style else { return }
+    func configure(_ value: Distribution, cost: Bool, quota: Bool, style: ChartStyle, strokeWidth: CGFloat? = nil) {
+        guard distribution != value || self.cost != cost || self.quota != quota || self.style != style || self.strokeWidth != strokeWidth else { return }
         let dataChanged = distribution != value
-        distribution = value; self.cost = cost; self.quota = quota; self.style = style
-        paths = []; clear(); hoverAnimation?.invalidate(); hoverAnimation = nil; scales = [:]
+        distribution = value; self.cost = cost; self.quota = quota; self.style = style; self.strokeWidth = strokeWidth
+        paths = []; clear()
         if dataChanged { transition(to: value) }
         else { needsDisplay = true }
     }
@@ -220,11 +233,9 @@ final class DonutNativeView: NSView {
     override func viewDidChangeEffectiveAppearance() { super.viewDidChangeEffectiveAppearance(); clear(); needsDisplay = true }
     private func preparePaths() {
         if geometrySize != bounds.size || paths.count != renderItems.count {
-            geometrySize = bounds.size; paths = DonutGeometry.paths(renderFractions, size: bounds.size)
+            geometrySize = bounds.size; paths = DonutGeometry.paths(renderFractions, size: bounds.size, strokeWidth: strokeWidth)
         }
     }
-    private var hoverAnimation: Timer?
-    private var scales: [Int: CGFloat] = [:]
     private func setRender(_ value: Distribution) {
         renderItems = value.items; renderFractions = value.items.map { value.fraction($0) }
         paths = []; needsDisplay = true
@@ -252,33 +263,9 @@ final class DonutNativeView: NSView {
             }
         }
     }
-    private func enlargedPath(_ index: Int) -> CGPath {
-        guard paths.indices.contains(index) else { return CGMutablePath() }
-        let scale = scales[index] ?? (selected == index ? 1.06 : 1)
-        var transform = CGAffineTransform(translationX: bounds.midX, y: bounds.midY)
-            .scaledBy(x: scale, y: scale).translatedBy(x: -bounds.midX, y: -bounds.midY)
-        return paths[index].copy(using: &transform) ?? paths[index]
-    }
     private func setSelection(_ index: Int?) {
         guard selected != index else { return }
-        selected = index; hoverAnimation?.invalidate()
-        let starting = scales, start = Date()
-        if NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
-            scales = index.map { [$0: 1.06] } ?? [:]; needsDisplay = true; return
-        }
-        hoverAnimation = Timer.scheduledTimer(withTimeInterval: 1.0 / 60, repeats: true) { [weak self] timer in
-            MainActor.assumeIsolated {
-                guard let self else { timer.invalidate(); return }
-                let t = min(1, Date().timeIntervalSince(start) / 0.12)
-                let eased = t * t * (3 - 2 * t)
-                for i in self.paths.indices {
-                    let from = starting[i] ?? 1, to = self.selected == i ? 1.06 : 1
-                    self.scales[i] = from + (to - from) * eased
-                }
-                self.needsDisplay = true
-                if t == 1 { timer.invalidate(); self.hoverAnimation = nil }
-            }
-        }
+        selected = index; needsDisplay = true
     }
     func clear() { setSelection(nil); tooltip?.removeFromSuperview(); needsDisplay = true }
     func show(at point: NSPoint) {
@@ -290,13 +277,13 @@ final class DonutNativeView: NSView {
             ancestor = view.superview
         }
         preparePaths()
-        guard let index = selected.flatMap({ i in enlargedPath(i).contains(point) ? i : nil }) ?? paths.firstIndex(where: { $0.contains(point) }), let container = window.contentView?.superview else { clear(); return }
+        guard let index = paths.firstIndex(where: { $0.contains(point) }), let container = window.contentView?.superview else { clear(); return }
         setSelection(index); needsDisplay = true
         let item = renderItems[index]
         accent = NSColor(style.color(id: item.id, activeIDs: renderItems.map(\.id)))
         let amount = quota ? item.value.formatted(.number.precision(.fractionLength(0...1))) + "%" : cost ? DisplayFormat.cost(item.value) : DisplayFormat.tokens(item.value) + " tokens"
         let tip = tooltip ?? ChartTooltipView(frame: .zero); tooltip = tip
-        let size = tip.configure(value: item.name, detail: amount + (quota ? "" : " " + distribution.fraction(item).formatted(.percent.precision(.fractionLength(0...1)))), accent: accent)
+        let size = tip.configure(value: item.name, detail: amount + (quota ? "" : " " + distribution.fraction(item).formatted(.percent.precision(.fractionLength(0...1)))), accent: .separatorColor)
         let cell = window.convertToScreen(convert(bounds, to: nil))
         let frame = HeatmapHitTesting.tooltipFrame(pointer: NSPoint(x: cell.midX, y: cell.maxY - 10), cell: cell, size: size,
                                                    bounds: window.frame.intersection(window.screen?.visibleFrame ?? window.frame))
@@ -306,17 +293,26 @@ final class DonutNativeView: NSView {
     override func draw(_ dirtyRect: NSRect) {
         preparePaths()
         if renderFractions.allSatisfy({ $0 <= 0 }) {
-            let rect = bounds.insetBy(dx: 22.5, dy: 22.5)
-            let ring = NSBezierPath(ovalIn: rect); ring.lineWidth = 27
+            let width = strokeWidth ?? 27
+            let rect = bounds.insetBy(dx: 9 + width / 2, dy: 9 + width / 2)
+            let ring = NSBezierPath(ovalIn: rect); ring.lineWidth = width
             NSColor.quaternaryLabelColor.setStroke(); ring.stroke()
         }
-        for index in paths.indices.sorted(by: { ($0 == selected ? 1 : 0) < ($1 == selected ? 1 : 0) }) {
-            let shape = NSBezierPath(cgPath: enlargedPath(index))
-            NSColor(style.color(id: renderItems[index].id, activeIDs: renderItems.map(\.id))).setFill(); shape.fill()
+        for index in paths.indices {
+            let shape = NSBezierPath(cgPath: paths[index])
+            let fill = NSColor(style.color(id: renderItems[index].id, activeIDs: renderItems.map(\.id)))
+            fill.setFill(); shape.fill()
             if NSWorkspace.shared.accessibilityDisplayShouldIncreaseContrast {
                 NSGraphicsContext.saveGraphicsState(); shape.addClip()
                 NSColor.labelColor.setStroke()
                 shape.lineWidth = 2; shape.stroke(); NSGraphicsContext.restoreGraphicsState()
+            }
+            if selected == index {
+                NSGraphicsContext.saveGraphicsState(); shape.addClip()
+                HeatmapHoverView.barStrokeColor(accent: fill, appearance: effectiveAppearance).setStroke()
+                // Clip the centered stroke to the original sector: no expanded silhouette.
+                shape.lineWidth = NSWorkspace.shared.accessibilityDisplayShouldIncreaseContrast ? 3 : 2
+                shape.stroke(); NSGraphicsContext.restoreGraphicsState()
             }
         }
     }

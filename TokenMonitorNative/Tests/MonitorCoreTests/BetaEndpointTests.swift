@@ -18,4 +18,19 @@ final class BetaEndpointTests: XCTestCase {
         let data = Data("{\"version\":2,\"pid\":0,\"session\":\"invalid\",\"address\":\"http://127.0.0.1:123\",\"secret\":\"\(String(repeating: "a", count: 64))\"}".utf8)
         XCTAssertThrowsError(try JSONDecoder().decode(BetaEndpoint.self, from: data).connection())
     }
+    func testPrivateEndpointFileRejectsSharedPermissionsAndSymlinks() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let file = directory.appendingPathComponent("endpoint.json")
+        try JSONEncoder().encode(endpoint("http://127.0.0.1:38123")).write(to: file)
+        try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: file.path)
+        XCTAssertEqual(try BetaEndpoint.load(from: file).pid, 123)
+        try FileManager.default.setAttributes([.posixPermissions: 0o644], ofItemAtPath: file.path)
+        XCTAssertThrowsError(try BetaEndpoint.load(from: file))
+        try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: file.path)
+        let link = directory.appendingPathComponent("link.json")
+        try FileManager.default.createSymbolicLink(at: link, withDestinationURL: file)
+        XCTAssertThrowsError(try BetaEndpoint.load(from: link))
+    }
 }

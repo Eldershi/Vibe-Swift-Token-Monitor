@@ -30,10 +30,10 @@ final class TimestampCacheTests: XCTestCase {
     func testIndependentPreferenceObservations() {
         let preferences = RuntimePreferences()
         var invalidated = false
-        withObservationTracking { _ = preferences.tool; _ = preferences.themeColor; _ = preferences.homeSections } onChange: { invalidated = true }
+        withObservationTracking { _ = preferences.themeColor; _ = preferences.homeSections } onChange: { invalidated = true }
         preferences.period = .today
         XCTAssertFalse(invalidated)
-        preferences.tool = "another-tool"
+        preferences.homeSections.reverse()
         XCTAssertTrue(invalidated)
     }
     func testSecondTickDoesNotInvalidateHistoryOrPresentation() throws {
@@ -43,7 +43,7 @@ final class TimestampCacheTests: XCTestCase {
         store.online = true; store.preparePresentation()
         let count = store.presentationComputations
         var invalidated = false
-        withObservationTracking { _ = store.statusClock; _ = store.historyDay; _ = store.tools } onChange: { invalidated = true }
+        withObservationTracking { _ = store.statusClock; _ = store.historyDay; _ = store.hasCodexData } onChange: { invalidated = true }
         store.now = store.now.addingTimeInterval(1)
         store.preparePresentation()
         XCTAssertFalse(invalidated)
@@ -60,11 +60,11 @@ final class TimestampCacheTests: XCTestCase {
         json["devices"] = [["deviceId": "a", "receivedAt": "2026-09-13T04:00:00Z", "periods": Dictionary(uniqueKeysWithValues: Period.allCases.map { ($0.rawValue, ["totalTokens": 0, "clients": ["codex": 0]] as [String: Any]) })]]
         store.stats = try Stats.decode(JSONSerialization.data(withJSONObject: json))
         store.online = true
-        XCTAssertEqual(store.tools, ["codex"])
+        XCTAssertTrue(store.hasCodexData)
         store.now = start.addingTimeInterval(0.999)
-        XCTAssertEqual(store.tools, ["codex"])
+        XCTAssertTrue(store.hasCodexData)
         store.now = start.addingTimeInterval(1.002)
-        XCTAssertTrue(store.tools.isEmpty)
+        XCTAssertFalse(store.hasCodexData)
     }
     func testLatestLayoutLateDataManualBrowsingAndReset() {
         var position = HistoryScrollPosition()
@@ -83,7 +83,7 @@ final class TimestampCacheTests: XCTestCase {
         XCTAssertEqual(position.layout(content: 1300, viewport: 300, prepends: true), 500)
     }
     func testHeatmapFillsWideViewWithMissingDatesAndPreservesZero() throws {
-        let history = try History.decode(Data("{\"daily\":[{\"date\":\"2026-09-13\",\"tokens\":0}],\"monthly\":[]}".utf8))
+        let history = try History.decode(Data("{\"daily\":[{\"date\":\"2026-09-13\",\"tokens\":0,\"perClient\":{\"codex\":{\"tokens\":0}}}],\"monthly\":[]}".utf8))
         let points = history.allActivityPoints(tool: "", now: DateCodec.parse("2026-09-13T04:00:00Z")!)
         let expanded = HistoryGeometry.fillingWeeks(points, minimumWeeks: 190)
         XCTAssertEqual((expanded.count + 6) / 7, 190)
@@ -95,7 +95,7 @@ final class TimestampCacheTests: XCTestCase {
     func testResizeExpansionNeverReprojectsHistory() throws {
         let store = AppStore(ephemeral: true)
         store.now = DateCodec.parse("2026-09-13T04:00:00Z")!
-        store.history = try History.decode(Data("{\"daily\":[{\"date\":\"2023-09-13\",\"tokens\":0}],\"monthly\":[]}".utf8))
+        store.history = try History.decode(Data("{\"daily\":[{\"date\":\"2023-09-13\",\"tokens\":0,\"perClient\":{\"codex\":{\"tokens\":0}}}],\"monthly\":[]}".utf8))
         let base = store.historyPoints(activity: true)
         let count = store.historyProjectionComputations
         for weeks in 16...190 { _ = store.historyPoints(activity: true, minimumWeeks: weeks) }
@@ -103,7 +103,7 @@ final class TimestampCacheTests: XCTestCase {
         XCTAssertEqual(store.historyPoints(activity: true), base)
     }
     func testMonthLabelsUseBoundaries() throws {
-        let history = try History.decode(Data("{\"daily\":[{\"date\":\"2026-07-10\",\"tokens\":0}],\"monthly\":[]}".utf8))
+        let history = try History.decode(Data("{\"daily\":[{\"date\":\"2026-07-10\",\"tokens\":0,\"perClient\":{\"codex\":{\"tokens\":0}}}],\"monthly\":[]}".utf8))
         let points = history.allPoints(monthly: false, tool: "", now: DateCodec.parse("2026-09-13T04:00:00Z")!)
         let dates = HistoryGeometry.monthIndices(points).map { DateCodec.key(points[$0].date, monthly: false) }
         XCTAssertEqual(dates, ["2026-07-10", "2026-08-01", "2026-09-01"])
@@ -131,7 +131,7 @@ final class TimestampCacheTests: XCTestCase {
         var value = Preferences()
         value.period = .today
         try await writer.savePreferences(value, to: url)
-        value.period = .allTime; value.tool = "codex"
+        value.period = .allTime
         try await writer.savePreferences(value, to: url, revision: 2)
         try await writer.savePreferences(Preferences(), to: url, revision: 1)
         XCTAssertEqual(try PreferencesFile(url: url).load(), value)
@@ -158,9 +158,8 @@ final class TimestampCacheTests: XCTestCase {
     }
     func testActivityFillsFixedNativeViewport() async throws {
         let store = AppStore(ephemeral: true)
-        store.preferences.tool = ""
         store.now = DateCodec.parse("2026-09-13T04:00:00Z")!
-        store.history = try History.decode(Data("{\"daily\":[{\"date\":\"2026-09-13\",\"tokens\":0}],\"monthly\":[]}".utf8))
+        store.history = try History.decode(Data("{\"daily\":[{\"date\":\"2026-09-13\",\"tokens\":0,\"perClient\":{\"codex\":{\"tokens\":0}}}],\"monthly\":[]}".utf8))
         let host = NSHostingView(rootView: ActivityView(store: store))
         host.sizingOptions = []
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 320, height: 200), styleMask: [.titled], backing: .buffered, defer: false)

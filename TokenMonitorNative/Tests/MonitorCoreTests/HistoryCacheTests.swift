@@ -3,36 +3,33 @@ import XCTest
 @testable import TokenMonitorNative
 
 @MainActor final class HistoryCacheTests: XCTestCase {
-    func testHistoryCacheTracksSnapshotToolAndCalendarDay() throws {
+    func testHistoryCacheTracksCodexSnapshotAndCalendarDay() throws {
         let store = AppStore(ephemeral: true)
         let date = DateCodec.parse("2026-09-13T12:00:00Z")!
         store.now = date
-        store.preferences.tool = "codex"
         let key = DateCodec.key(date, monthly: false)
         func history(_ tokens: Int) throws -> History {
-            try History.decode(Data("{\"daily\":[{\"date\":\"\(key)\",\"tokens\":\(tokens),\"perClient\":{\"codex\":{\"tokens\":3}}}],\"monthly\":[]}".utf8))
+            try History.decode(Data("{\"daily\":[{\"date\":\"\(key)\",\"tokens\":\(tokens),\"perClient\":{\"codex\":{\"tokens\":\(tokens * 3 / 10)}}}],\"monthly\":[]}".utf8))
         }
         store.history = try history(10)
         let initial = store.historyPoints()
         XCTAssertEqual(initial.last?.tokens, 3)
         store.now = date.addingTimeInterval(1)
         XCTAssertEqual(store.historyPoints(), initial)
-        store.preferences.tool = ""
-        XCTAssertEqual(store.historyPoints().last?.tokens, 10)
+        XCTAssertEqual(store.historyPoints().last?.tokens, 3)
         store.history = try history(20)
-        XCTAssertEqual(store.historyPoints().last?.tokens, 20)
-        XCTAssertEqual(store.historyPoints(activity: true).last?.tokens, 20)
+        XCTAssertEqual(store.historyPoints().last?.tokens, 6)
+        XCTAssertEqual(store.historyPoints(activity: true).last?.tokens, 6)
         XCTAssertEqual(store.historyPoints(monthly: true).count, 12)
         store.now = Calendar.current.date(byAdding: .day, value: 1, to: date)!
         XCTAssertNil(store.historyPoints().last?.tokens)
-        XCTAssertEqual(store.historyPoints().dropLast().last?.tokens, 20)
+        XCTAssertEqual(store.historyPoints().dropLast().last?.tokens, 6)
         store.history = nil
         XCTAssertTrue(store.historyPoints().isEmpty)
     }
     func testTrendBucketsFollowTodayThirtyDayAndTwentyFourMonthRules() throws {
         let store = AppStore(ephemeral: true)
         store.now = DateCodec.parse("2028-02-15T12:00:00+08:00")!
-        store.preferences.tool = "codex"
         store.history = try History.decode(Data(#"{"daily":[{"date":"2028-02-01","tokens":8,"perClient":{"codex":{"tokens":3}}}],"monthly":[{"month":"2028-02","tokens":80,"perClient":{"codex":{"tokens":30}}}]}"#.utf8))
         store.preferences.period = .month
         let days = store.trendPoints()
@@ -53,8 +50,5 @@ import XCTest
                                                                    rangeStart: hourly.first?.start, rangeEnd: hourStart.addingTimeInterval(3600).ISO8601Format(), points: hourly)
         XCTAssertEqual(store.trendPoints().count, 24)
         XCTAssertEqual(store.trendPoints().last?.tokens, 23)
-        store.preferences.tool = "claude"
-        XCTAssertTrue(store.trendUnsupported)
-        XCTAssertTrue(store.trendPoints().isEmpty)
     }
 }

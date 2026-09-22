@@ -4,16 +4,15 @@ public struct Preferences: Codable, Equatable, Sendable {
     public var schemaVersion = 4
     public var hubAddress = "http://127.0.0.1:17321"
     public var connected = false
-    public var tool = "codex"
     public var period = Period.month
     public var pinned = false
     public var automaticallyCheckForUpdates = false
     public var showPanelOnLaunch = true
     public var chartStyle = ChartStyle()
-    public var menuBarTokens = true
-    public var menuBarShortQuota = true
-    public var menuBarWeeklyQuota = false
-    public var menuBarStyle = MenuBarStyle.text
+    public var menuBarTokens = false
+    public var menuBarShortQuota = false
+    public var menuBarWeeklyQuota = true
+    public var menuBarStyle = MenuBarStyle.rings
     public var modelSortByCost = false
     public var homeSections = HomeSection.allCases
     public var hiddenHomeSections: Set<HomeSection> = [.devices]
@@ -37,21 +36,20 @@ public struct Preferences: Codable, Equatable, Sendable {
         homeSections.insert(section, at: to)
     }
     public init() {}
-    enum CodingKeys: String, CodingKey { case chartStyle, menuBarTokens, menuBarShortQuota, menuBarWeeklyQuota, menuBarStyle, automaticallyCheckForUpdates, schemaVersion, hubAddress, connected, tool, period, pinned, showPanelOnLaunch, modelSortByCost, homeSections, hiddenHomeSections, showHomeDeviceUsageBars, homeQuotaSelection, themeColor, customThemeColor }
+    enum CodingKeys: String, CodingKey { case chartStyle, menuBarTokens, menuBarShortQuota, menuBarWeeklyQuota, menuBarStyle, automaticallyCheckForUpdates, schemaVersion, hubAddress, connected, period, pinned, showPanelOnLaunch, modelSortByCost, homeSections, hiddenHomeSections, showHomeDeviceUsageBars, homeQuotaSelection, themeColor, customThemeColor }
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         let version = try c.decodeIfPresent(Int.self, forKey: .schemaVersion) ?? 0
         guard version <= 4 else { throw HubError.incompatible(L10n.text("设置来自较新版本")) }
         automaticallyCheckForUpdates = try c.decodeIfPresent(Bool.self, forKey: .automaticallyCheckForUpdates) ?? false
         chartStyle = (try? c.decode(ChartStyle.self, forKey: .chartStyle)) ?? ChartStyle()
-        menuBarTokens = try c.decodeIfPresent(Bool.self, forKey: .menuBarTokens) ?? true
-        menuBarShortQuota = try c.decodeIfPresent(Bool.self, forKey: .menuBarShortQuota) ?? true
-        menuBarWeeklyQuota = try c.decodeIfPresent(Bool.self, forKey: .menuBarWeeklyQuota) ?? false
-        menuBarStyle = MenuBarStyle(rawValue: try c.decodeIfPresent(String.self, forKey: .menuBarStyle) ?? "text") ?? .text
+        menuBarTokens = try c.decodeIfPresent(Bool.self, forKey: .menuBarTokens) ?? false
+        menuBarShortQuota = try c.decodeIfPresent(Bool.self, forKey: .menuBarShortQuota) ?? false
+        menuBarWeeklyQuota = try c.decodeIfPresent(Bool.self, forKey: .menuBarWeeklyQuota) ?? true
+        menuBarStyle = MenuBarStyle(rawValue: try c.decodeIfPresent(String.self, forKey: .menuBarStyle) ?? "rings") ?? .rings
         schemaVersion = 4
         hubAddress = try c.decodeIfPresent(String.self, forKey: .hubAddress) ?? "http://127.0.0.1:17321"
         connected = try c.decodeIfPresent(Bool.self, forKey: .connected) ?? false
-        tool = try c.decodeIfPresent(String.self, forKey: .tool) ?? "codex"
         period = try c.decodeIfPresent(Period.self, forKey: .period) ?? .month
         pinned = try c.decodeIfPresent(Bool.self, forKey: .pinned) ?? false
         showPanelOnLaunch = try c.decodeIfPresent(Bool.self, forKey: .showPanelOnLaunch) ?? true

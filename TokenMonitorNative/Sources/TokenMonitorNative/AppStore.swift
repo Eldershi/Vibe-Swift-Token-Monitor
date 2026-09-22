@@ -6,7 +6,7 @@ import MonitorCore
     var preferences = RuntimePreferences()
     var stats: Stats? { didSet {
         if QuotaPresentation.topology(oldValue?.limits?.providers ?? []) != QuotaPresentation.topology(stats?.limits?.providers ?? []) {
-            menuQuotaSelection = nil; detailQuotaSelection = nil
+            detailQuotaSelection = nil
         }
         snapshotRevision += 1; refreshTemporalBoundary()
     } }
@@ -76,7 +76,6 @@ import MonitorCore
         }
     }
     private struct HistoryPointsKey: Hashable {
-        let tool: String
         let kind: Int
         let day: Date
         let calendar: Calendar
@@ -91,7 +90,7 @@ import MonitorCore
     func historyPoints(monthly: Bool = false, activity: Bool = false, minimumWeeks: Int = 16) -> [TrendPoint] {
         guard let history else { return [] }
         let calendar = Calendar.current
-        let key = HistoryPointsKey(tool: preferences.tool, kind: activity ? 2 : (monthly ? 1 : 0),
+        let key = HistoryPointsKey(kind: activity ? 2 : (monthly ? 1 : 0),
                                    day: historyDay, calendar: calendar, minimumWeeks: activity ? minimumWeeks : 0)
         if activity && minimumWeeks > 16 {
             let base = historyPoints(activity: true)
@@ -104,9 +103,9 @@ import MonitorCore
         }
         if let points = historyPointsCache[key] { return points }
         historyProjectionComputations += 1
-        let points = activity ? HistoryGeometry.fillingWeeks(history.allActivityPoints(tool: key.tool, now: historyDay), minimumWeeks: minimumWeeks)
-                              : history.allPoints(monthly: monthly, tool: key.tool, now: historyDay)
-        // Bound retention even when the process spans many days or tools.
+        let points = activity ? HistoryGeometry.fillingWeeks(history.allActivityPoints(tool: "codex", now: historyDay), minimumWeeks: minimumWeeks)
+                              : history.allPoints(monthly: monthly, tool: "codex", now: historyDay)
+        // Bound retention even when the process spans many days.
         if historyPointsCache.count >= 12 { historyPointsCache.removeAll() }
         historyPointsCache[key] = points
         return points
@@ -114,11 +113,9 @@ import MonitorCore
     var trendGranularity: TrendGranularity {
         switch preferences.period { case .today: .hour; case .month: .day; case .allTime: .month }
     }
-    var trendUnsupported: Bool { preferences.period == .today && preferences.tool != "codex" }
     func trendPoints() -> [TrendPoint] {
         if preferences.period == .today {
-            guard preferences.tool == "codex",
-                  let hourly = rollingHourlyTrend ?? conversionSnapshot?.trend?.hourly,
+            guard let hourly = rollingHourlyTrend ?? conversionSnapshot?.trend?.hourly,
                   hourly.isRolling24 else { return [] }
             return hourly.points.compactMap { point in
                 guard let date = DateCodec.parse(point.start) else { return nil }
@@ -126,17 +123,16 @@ import MonitorCore
             }
         }
         guard let history else { return [] }
-        if preferences.period == .allTime { return history.points(monthly: true, tool: preferences.tool, now: historyDay, count: 24) }
-        return history.points(monthly: false, tool: preferences.tool, now: historyDay, count: 30)
+        if preferences.period == .allTime { return history.points(monthly: true, tool: "codex", now: historyDay, count: 24) }
+        return history.points(monthly: false, tool: "codex", now: historyDay, count: 30)
     }
     private struct PresentationKey: Equatable {
         let revision: Int
         let date: Date
-        var tool = ""
         var period = Period.month
         var cost = false
     }
-    @ObservationIgnored private var toolsCache: (PresentationKey, [String])?
+    @ObservationIgnored private var codexDataCache: (PresentationKey, Bool)?
     @ObservationIgnored private var quotaCache: (PresentationKey, [QuotaProvider])?
     @ObservationIgnored private var devicesCache: (PresentationKey, [Device])?
     @ObservationIgnored private var modelsCache: (PresentationKey, [ModelRow])?
@@ -145,7 +141,7 @@ import MonitorCore
         PresentationKey(revision: snapshotRevision, date: online ? statusClock : receivedAt ?? statusClock)
     }
     func preparePresentation() {
-        _ = tools; _ = quotaProviders; _ = devices; _ = modelRows
+        _ = hasCodexData; _ = quotaProviders; _ = devices; _ = modelRows
         let ids = modelDistribution.items.map(\.id) + deviceDistribution.items.map(\.id)
         var style = preferences.chartStyle
         var next = style.slots
@@ -187,7 +183,7 @@ import MonitorCore
         return value
     }
     var quotaProviders: [QuotaProvider] {
-        availableQuotaProviders.filter { preferences.tool.isEmpty || $0.provider == preferences.tool }
+        availableQuotaProviders
     }
     var quotaChoices: [QuotaChoice] { QuotaSelection.choices(in: availableQuotaProviders) }
     var homeQuotaIDs: Set<String> {
@@ -197,70 +193,54 @@ import MonitorCore
         QuotaSelection.filtered(availableQuotaProviders, ids: homeQuotaIDs)
     }
     var usage: Usage? { stats?.periods[preferences.period.rawValue] }
-    var tools: [String] {
+    var hasCodexData: Bool {
         let key = presentationKey
-        if let cached = toolsCache, cached.0 == key { return cached.1 }
-        guard let stats else { return [] }
-        let candidates = Set(stats.periods.values.flatMap { Array(($0.clients ?? [:]).keys) })
-        let value = stats.devices.isEmpty ? candidates.sorted() : candidates.filter { tool in
-            stats.devices.contains { $0.hasUsableData(for: tool, at: key.date, threshold: stats.staleAfterMs ?? 600_000) }
-        }.sorted()
-        toolsCache = (key, value); presentationComputations += 1
+        if let cached = codexDataCache, cached.0 == key { return cached.1 }
+        guard let stats else { return false }
+        let value = stats.devices.isEmpty
+            ? stats.periods.values.contains { $0.clients?["codex"] != nil }
+            : stats.devices.contains { $0.hasUsableData(for: "codex", at: key.date, threshold: stats.staleAfterMs ?? 600_000) }
+        codexDataCache = (key, value); presentationComputations += 1
         return value
     }
-    func reconcileToolSelection() {
-        guard stats != nil, !preferences.tool.isEmpty, !tools.contains(preferences.tool) else { return }
-        preferences.tool = tools.contains("codex") ? "codex" : tools.first ?? ""
-        savePreferences()
-    }
-    var selectedToolTitle: String { preferences.tool.isEmpty ? L10n.text("全部工具") : preferences.tool == "codex" ? "Codex" : preferences.tool }
-    var selectedTokens: Double? { usage?.tokens(tool: preferences.tool) }
-    var selectedCost: Double? { usage?.cost(tool: preferences.tool) }
-    var todayTokens: Double? { stats?.periods["today"]?.tokens(tool: preferences.tool) }
+    var selectedTokens: Double? { usage?.tokens(tool: "codex") }
+    var selectedCost: Double? { usage?.cost(tool: "codex") }
+    var todayTokens: Double? { stats?.periods["today"]?.tokens(tool: "codex") }
     var devices: [Device] {
-        let key = PresentationKey(revision: snapshotRevision, date: .distantPast, tool: preferences.tool)
+        let key = PresentationKey(revision: snapshotRevision, date: .distantPast)
         if let cached = devicesCache, cached.0 == key { return cached.1 }
-        let value = (stats?.devices ?? []).filter { key.tool.isEmpty || $0.trackedClients?.contains(key.tool) == true || $0.periods["allTime"]?.clients?[key.tool] != nil }.sorted { $0.id.localizedStandardCompare($1.id) == .orderedAscending }
+        let value = (stats?.devices ?? []).filter { $0.trackedClients?.contains("codex") == true || $0.periods["allTime"]?.clients?["codex"] != nil }.sorted { $0.id.localizedStandardCompare($1.id) == .orderedAscending }
         devicesCache = (key, value); presentationComputations += 1
         return value
     }
     var deviceUsageFractions: [String: Double] {
-        DeviceUsageComparison.fractions(devices: devices, tool: preferences.tool, period: preferences.period, now: statusClock)
+        DeviceUsageComparison.fractions(devices: devices, tool: "codex", period: preferences.period, now: statusClock)
     }
     var modelRows: [ModelRow] {
-        var key = presentationKey; key.tool = preferences.tool; key.period = preferences.period; key.cost = preferences.modelSortByCost
+        var key = presentationKey; key.period = preferences.period; key.cost = preferences.modelSortByCost
         if let cached = modelsCache, cached.0 == key { return cached.1 }
-        let allowedNames = Set(tools.flatMap { Array((usage?.clientModels?[$0] ?? [:]).keys) })
-        let value = (usage?.modelRows(tool: key.tool) ?? []).filter {
-            !key.tool.isEmpty || usage?.clientModels == nil || allowedNames.contains($0.name)
-        }.sorted {
+        let value = (usage?.modelRows(tool: "codex") ?? []).sorted {
             if key.cost { return ($0.cost ?? -1) == ($1.cost ?? -1) ? $0.name < $1.name : ($0.cost ?? -1) > ($1.cost ?? -1) }
             return $0.tokens == $1.tokens ? $0.name < $1.name : $0.tokens > $1.tokens
         }
         modelsCache = (key, value); presentationComputations += 1
         return value
     }
-    var menuQuotaSelection: (source: String, index: Int)?
     var detailQuotaSelection: (source: String, id: String)?
     var quotaReports: [QuotaProvider] {
         let deviceReports = (stats?.devices ?? []).flatMap { device in
-            (device.limits?.providers ?? []).map { report in var copy = report; copy.sourceDeviceId = device.id; return copy }
+            (device.limits?.providers ?? []).filter { $0.provider == "codex" }.map { report in var copy = report; copy.sourceDeviceId = device.id; return copy }
         }
-        return QuotaNaming.reports(deviceReports.isEmpty ? stats?.limits?.providers ?? [] : deviceReports)
+        return QuotaNaming.reports((deviceReports.isEmpty ? stats?.limits?.providers ?? [] : deviceReports).filter { $0.provider == "codex" })
     }
     var quotaThreshold: Double { stats?.staleAfterMs ?? 600_000 }
     var menuQuotaReportIndex: Int? {
-        if let choice = menuQuotaSelection, choice.source == preferences.hubAddress,
-           quotaReports.indices.contains(choice.index) { return choice.index }
-        return QuotaPresentation.defaultReport(quotaReports, now: statusClock, threshold: quotaThreshold)
-    }
-    func selectMenuQuotaReport(_ index: Int) {
-        menuQuotaSelection = index >= 0 ? (preferences.hubAddress, index) : nil
+        QuotaPresentation.defaultReport(quotaReports, now: statusClock, threshold: quotaThreshold)
     }
     @ObservationIgnored private var modelDistributionCache: (PresentationKey, Distribution)?
     @ObservationIgnored private var deviceDistributionCache: (PresentationKey, Distribution)?
     var modelDistribution: Distribution {
-        var key = presentationKey; key.tool = preferences.tool; key.period = preferences.period; key.cost = preferences.modelSortByCost
+        var key = presentationKey; key.period = preferences.period; key.cost = preferences.modelSortByCost
         if let cached = modelDistributionCache, cached.0 == key { return cached.1 }
         let value = Distribution(modelRows.compactMap { row in
             guard let amount = key.cost ? row.cost : row.tokens else { return nil }
@@ -269,11 +249,11 @@ import MonitorCore
         modelDistributionCache = (key, value); return value
     }
     var deviceDistribution: Distribution {
-        let key = PresentationKey(revision: snapshotRevision, date: statusClock, tool: preferences.tool, period: preferences.period)
+        let key = PresentationKey(revision: snapshotRevision, date: statusClock, period: preferences.period)
         if let cached = deviceDistributionCache, cached.0 == key { return cached.1 }
         let value = Distribution(devices.compactMap { device in
             guard !device.periodExpired(preferences.period, at: statusClock),
-                  let amount = device.periods[preferences.period.rawValue]?.tokens(tool: preferences.tool) else { return nil }
+                  let amount = device.periods[preferences.period.rawValue]?.tokens(tool: "codex") else { return nil }
             return DistributionItem(id: "device:" + device.id, name: device.id, value: amount)
         }, otherID: "aggregate:other:device")
         deviceDistributionCache = (key, value); return value
@@ -288,11 +268,7 @@ import MonitorCore
         }
         guard let client else { throw HubError.disconnected }
         let payload = try body.map { try JSONSerialization.data(withJSONObject: $0) }
-        do { return try await client.send("api/beta/conversion", body: payload) }
-        catch HubError.http(404) {
-            guard Identity.isBeta, let resources = Bundle.main.resourceURL else { throw HubError.http(404) }
-            return try await ConversionBridge.request(payload, directory: Identity.directory.appendingPathComponent("Backend"), resources: resources)
-        }
+        return try await client.send("api/beta/conversion", body: payload)
     }
     func ensureConversionLoaded() async {
         guard Identity.isBeta else { return }
@@ -315,13 +291,6 @@ import MonitorCore
             conversionSnapshot = decoded
             if let hourly = decoded.trend?.hourly, hourly.isRolling24 {
                 rollingHourlyTrend = hourly
-            } else if Identity.isBeta, let resources = Bundle.main.resourceURL {
-                rollingHourlyTrend = nil
-                struct Envelope: Decodable { struct Trend: Decodable { let hourly: ConversionSnapshot.HourlyTrend }; let trend: Trend }
-                let payload = try JSONSerialization.data(withJSONObject: ["action": "rollingTrend"])
-                if let bridge = try? await ConversionBridge.request(payload, directory: Identity.directory.appendingPathComponent("Backend"), resources: resources),
-                   let hourly = try? JSONDecoder().decode(Envelope.self, from: bridge).trend.hourly,
-                   hourly.isRolling24 { rollingHourlyTrend = hourly }
             } else { rollingHourlyTrend = nil }
             conversionError = nil
             if body?["action"] as? String == "refresh" { lastConversionRefresh = Date() }
@@ -491,7 +460,6 @@ import MonitorCore
     func accept(_ snapshot: Stats) {
         stats = snapshot; now = Date(); receivedAt = now
         online = true; error = nil; status = L10n.text("已连接 实时同步")
-        reconcileToolSelection()
         preparePresentation()
         if historyWanted && (history == nil || loadedHistoryRevision != snapshot.historyRevision) { loadHistory() }
         applyBetaSyncStatus(); scheduleCache()
@@ -501,7 +469,11 @@ import MonitorCore
         guard Identity.isBeta, !ephemeral, !BetaBackend.shared.localOnly, BetaBackend.shared.snapshot?.sync?.enabled == true else { return }
         if let stamp = BetaBackend.shared.snapshot?.sync?.lastSuccess, let date = DateCodec.parse(stamp) { receivedAt = date }
         if BetaBackend.shared.snapshot?.sync?.error != nil { online = false; status = BetaBackend.shared.syncMessage }
-        else if BetaBackend.shared.snapshot?.sync?.lastSuccess != nil { online = true; status = L10n.text("已连接 Hub 多设备同步") }
+        else if BetaBackend.shared.snapshot?.sync?.lastSuccess != nil {
+            online = true
+            status = Identity.isNativeBeta2 && BetaBackend.shared.snapshot?.sync?.uploadEnabled != true
+                ? L10n.text("已连接 Hub 只读") : L10n.text("已连接 Hub 多设备同步")
+        }
     }
     func refresh() {
         if Identity.isBeta && !ephemeral { Task { await BetaBackend.shared.command("refresh") }; refreshConversion(force: true); BetaBackend.shared.reconnect(); return }

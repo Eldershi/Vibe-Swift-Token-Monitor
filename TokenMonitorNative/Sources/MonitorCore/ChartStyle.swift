@@ -6,9 +6,17 @@ public struct ChartStyle: Codable, Equatable, Sendable {
     public var other = Self.rgb(0x999999)
     public var remaining = Self.rgb(0x21A675)
     public var used = Self.rgb(0xBEC4CC)
+    public var objectNames: [String: String]? = nil
     public var objectColors: [String: RGBColor]? = nil
     public var slots: [String: Int] = [:]
     public init() {}
+    public func displayName(id: String, fallback: String) -> String {
+        let name = objectNames?[id]?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return name.isEmpty ? fallback : name
+    }
+    public func named(_ distribution: Distribution) -> Distribution {
+        distribution.mapNames { displayName(id: $0.id, fallback: $0.name) }
+    }
     public static func rgb(_ hex: Int) -> RGBColor {
         RGBColor(red: Double((hex >> 16) & 255) / 255, green: Double((hex >> 8) & 255) / 255, blue: Double(hex & 255) / 255)
     }

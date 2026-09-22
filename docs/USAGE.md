@@ -2,46 +2,96 @@
 
 [首页](../README.md) · [English](#english)
 
-## 中文
+## 安装与升级
 
-**安装与更新**：解压下载包，将应用移入“应用程序”。升级前退出旧界面，保留旧副本；不要同时运行多个安装副本。0.5.2 起可在设置 → 关于检查正式版本；自动检查默认关闭，开启后启动时及运行期间每 6 小时检查，安装始终需要确认。应用当前未公证。
+0.7.0 适用于 Apple Silicon、macOS 26 及以上。打开 DMG 后将 **Token Monitor.app** 拖到“应用程序”，或解压 ZIP 后移动应用。当前未公证；若系统拦截，请先核对下载来源及 SHA-256，再按 macOS“隐私与安全性”中的提示处理，不要全局关闭系统保护。
 
-**本机采集**：按系统提示允许后台运行。首次扫描可能需要等待；退出界面不会停止后台采集。额度读取原工具的有效登录状态，失效时在原工具重新登录。本机已删除且从未采集的日志无法恢复。
+### 从 0.6 或更早版本升级
 
-**范围与额度换算**：“今天”显示滚动过去 24 小时，“本月”显示含今天在内的最近 30 个自然日，“总计”显示最近 24 个自然月。额度换算只估算当前额度窗口内各设备和模型的已用额度占比，不预测剩余 Token。结果按额度读数、已记录 Token 分类和适用价格加权；数据不完整时会使用明确标记的近似或最近成功结果。
+1. 在旧应用中停用 Hub 上传，再停用后台，最后退出界面。单独退出窗口不会停止后台。
+2. 保留旧应用及数据备份，安装并打开 0.7.0。
+3. 在设置 → 数据启用原生后台；首次扫描需要等待。本机历史以仍保留的 Codex 日志为依据，已删除且从未采集的日志不能恢复。
+4. 如使用 Hub，重新输入地址与密钥、验证连接，选择此 Mac 原有的设备记录，再启用同步。
 
-**Hub 同步**：在设置 → 数据手动填写地址和密钥，验证并绑定已有设备。本机用量与 Hub 汇总分开；同一设备向同一 Hub 只保留一个上传者。接替原应用前先停用其同步，回退前先停用本应用同步，避免重复上传。不要直接删除同步基线。
+0.7 使用独立后台身份与数据目录，不自动搬移 0.6 的设置或同步账本。已有 Hub 记录在交接时保留，本机新增量按保存的交接基线续传。不要删除基线、随意改设备标识或同时运行两个上传者；交接验证失败时先保留数据并检查错误，不要通过清空文件强行绕过。
 
-**数据与隐私**：统计和账号额度是不同来源；费用只是 API 等价估算。原工具凭据只读，不自动续期或启动模型会话。启用兼容 Hub 的额度换算同步时，上传匿名设备、模型、事件时间、Token 分类计数、覆盖记录和匿名账号摘要；不上传正文、提示词、文件路径、邮箱或凭据。Hub 密钥存于仅当前用户可访问的 0600 明文文件，不写入日志；请按敏感数据保护本机账户。
+0.7.0-beta.2 与正式版共享数据目录；停止实验版后台并退出后替换应用，避免保留两个运行副本。显示名称已改为 Token Monitor，内部历史标识保持兼容。
 
-**跨平台 Node 采集器**：Release 中的 `Token-Monitor-Conversion-0.6.0-node.zip` 需要 Node.js 24.19 或更新的 24.x 版本。它与 Mac 应用共用解析、去重和换算代码，没有第三方 npm 依赖。解压后运行：
+### 后续更新
 
-```sh
-node conversion/cli.cjs --directory /path/to/private-data --device-id EXISTING_DEVICE_ID --logs /path/to/.codex --hub https://YOUR-HUB.example --secret-file /path/to/private-hub-secret --once
-```
+设置 → 关于可检查 GitHub 正式 Release。自动检查默认关闭，启用后应用运行期间每 6 小时检查；下载与安装需要确认。0.7 使用独立的 `appcast-native.xml` 签名清单，0.6 的旧更新器不会把它当作同身份替换包，首次迁移请手动下载。预发行不进入正式更新通道。
 
-`--device-id` 必须使用 Hub 中已有设备 ID；`--logs` 指向包含 `sessions` 和 `archived_sessions` 的 Codex 根目录。macOS/Linux 的密钥文件权限设为 `600`，Windows 使用仅当前用户可读的 ACL。去掉 `--once` 后每分钟同步，Ctrl+C 停止。Mac 内置采集和 Node 采集器对同一设备只能启用一个；私有数据目录、队列和检查点不要放进同步文件夹或随意删除。Windows/Linux 尚未真机验证。
+## 页面与统计口径
 
-**暂停与卸载**：设置 → 数据可暂停采集或停用后台。卸载前先停用 Hub 同步、停用后台并退出，再把应用移到废纸篓；已有数据默认保留。回退时恢复旧应用副本，并先核对该版本的同步能力。
+| 内容 | 口径 |
+|---|---|
+| 今天 / 本月 / 总计的用量摘要 | 本机按当地自然日、自然月和已采集累计统计；Hub 模式采用来源设备的周期与有效性 |
+| 今天的趋势和活动明细 | 滚动过去 24 个小时槽 |
+| 本月的趋势和活动明细 | 含今天在内的最近 30 个自然日 |
+| 总计趋势 | 最近 24 个自然月；累计总量本身不受这 24 个月限制 |
+| 官方额度 | 独立账号窗口，不随用量范围相加，也不按设备简单累加 |
+| 设备额度分摊 | 近期最多 7 个完整日的模型费用权重外推，属于估算 |
+| 设备累计 Token 图 | Hub 中各设备实际同步的 Codex 累计量，不是分摊估算的 Token |
+
+总览的模型、设备、热力图和趋势入口进入活动页。活动卡片可打开完整模型 / 设备详情或热力图与趋势明细。额度页集中展示三种图表、设备与模型分摊，以及周期记录；统计依据位于设置 → 数据的折叠项。
+
+额度读数约每 5 分钟只读采集一次，手动刷新可发起新读取。登录失效时在 Codex 中重新登录。过期额度不假定已重置；缺失数值不当作零。费用字段来自已有价格依据，是 API 等价估算，不是订阅费用。
+
+## Hub 与周期记录
+
+地址与共享密钥由用户配置，密钥不是 OpenAI API Key。可以只读查看 Hub；绑定本机设备并启用上传后才续传本机统计。当前客户端只采集和展示 Codex，但同步保留其他客户端 / Agent 的历史字段。
+
+基础兼容目标为 Token Monitor v0.56.0 Hub API。周期记录需要 Hub 提供 `/api/quota/cycles` 及对应能力声明；上游基础 Hub 不自动具备本项目的扩展。缺少能力时保留基本统计，窗口区间仅作预计值。支持扩展但尚无匹配确认周期时，分摊估算暂停。
+
+周期起点根据稳定截止时间减去窗口长度推导，并需多次观测确认。它不是百分比归零的精确发生时间，也不保证捕获轮询间的每次变化。本版不提供剩余 Token 预测、重置通知或逐请求严格归因；额度分摊需要 Hub 中有完整日费用数据。
+
+## 隐私与本机数据
+
+- 本机采集读取 Codex 日志，额度读取已有登录状态；不自动续期、不启动模型会话。
+- 启用 Hub 上传后发送设备标识 / 名称 / 系统信息、版本、模型及 Token 汇总、日月历史和匿名账号额度观测；不上传提示词、会话正文、日志路径、邮箱或登录凭据。
+- Hub 密钥保存在当前用户专用的 0600 明文文件。匿名账号摘要是关联标识，并不意味着所有统计都不可识别；请信任你配置的 Hub。
+- 当前数据目录仍为 `~/Library/Application Support/Token Monitor Native Beta 2/`，用于兼容已有原生版本。不要公开该目录或将其中基线、队列放进同步文件夹。
+
+## 定制、暂停与卸载
+
+设置支持栏目显隐和排序、主题色、菜单栏指标、图表配色与本机别名。别名不更改服务端标识；恢复配色不清除名字。语言跟随 macOS，可在系统中设置单应用语言。
+
+`⌘,` 打开设置，`⌘R` 刷新，`⌘W` 关窗，`⌘Q` 退出界面。后台单独管理：卸载前先停用 Hub 上传和后台，再退出并移除应用；本机数据默认保留。回退时先停止新版后台，再恢复旧应用和对应数据，不让同设备双写。
 
 ## English
 
-**Install and update:** unzip the download and move the app to Applications. Quit the old interface and keep a backup before upgrading. Do not run multiple copies at once. From 0.5.2, check stable releases in Settings → About. Automatic checks are off by default; when enabled, they run at launch and every six hours while the app is running. Installation always requires confirmation. The app is not notarized.
+### Install and migrate
 
-**Local collection:** allow background activity when macOS prompts you. The first scan may take time; quitting the interface does not stop collection. Quotas use the original tool's valid sign-in state. Sign in again there if access expires. Logs deleted before they were ever collected cannot be recovered.
+Requires Apple Silicon and macOS 26 or later. Drag **Token Monitor.app** from the DMG into Applications, or extract the ZIP and move the app. The app is not notarized. If macOS blocks it, verify the source and checksum, then use the system's Privacy & Security prompts without disabling protection globally.
 
-**Ranges and quota attribution:** Today is a rolling 24-hour window, This Month is the latest 30 calendar days including today, and Total is the latest 24 calendar months. Quota attribution estimates each device and model's share of quota already used in the current quota window; it does not predict remaining tokens. It weights the quota reading with recorded token categories and applicable prices. When inputs are incomplete, the app uses an explicitly approximate or last successful result.
+For 0.6 or earlier, disable Hub uploads and the old background service before quitting. Keep the old app and data backup, install 0.7, enable the native service, and wait for the initial Codex scan. Configure the Hub again and select the Mac's existing device record. The new version has a separate data directory; it does not automatically migrate old preferences or ledgers. It preserves the remote record during handoff and sends subsequent local increments against a saved baseline. Keep one uploader per device and never clear a baseline to bypass a failed handoff.
 
-**Hub sync:** enter the address and secret in Settings → Data, validate, and bind the existing device. Local usage and Hub totals are separate. Keep only one uploader per device per Hub. Disable the previous app's sync before switching, and disable this app's sync before switching back. Do not delete the sync baseline.
+Users of 0.7.0-beta.2 retain their existing data directory. Stop that service and quit before replacing the app. The display name changes to Token Monitor while internal identifiers remain compatible.
 
-**Data and privacy:** usage statistics and account quotas come from different sources; costs are API-equivalent estimates. Tool credentials are read-only, with no automatic renewal or model sessions. With quota-conversion sync to a compatible Hub enabled, the app uploads anonymous device and account identifiers, model names, event times, token-category counts, and coverage records. It does not upload content, prompts, file paths, email addresses, or credentials. The Hub secret is stored in a plaintext file with owner-only 0600 permissions and is excluded from logs. Protect your local account accordingly.
+Settings → About checks stable GitHub releases. Automatic checks default to off and run every six hours while enabled and running. Download and installation require confirmation. The separate signed `appcast-native.xml` feed prevents the 0.6 updater from attempting to replace an app with a different identity; the first migration requires a manual download.
 
-**Cross-platform Node collector:** the `Token-Monitor-Conversion-0.6.0-node.zip` release asset requires Node.js 24.19 or a newer 24.x release. It shares parsing, deduplication, and attribution code with the Mac app and has no third-party npm dependencies. After extracting it, run:
+### Reading the data
 
-```sh
-node conversion/cli.cjs --directory /path/to/private-data --device-id EXISTING_DEVICE_ID --logs /path/to/.codex --hub https://YOUR-HUB.example --secret-file /path/to/private-hub-secret --once
-```
+Usage summaries mean the local calendar day, calendar month, and collected lifetime total. Hub summaries follow the source devices' period windows and validity. Trends and activity details use rolling 24 hours, the latest 30 calendar days including today, and a 24-month trend; lifetime totals are not limited to 24 months.
 
-`--device-id` must be an existing device ID in the Hub. `--logs` points to the Codex root containing `sessions` and `archived_sessions`. Set the secret file to mode `600` on macOS/Linux, or use an owner-only ACL on Windows. Remove `--once` to sync every minute and stop it with Ctrl+C. Run either the Mac collector or the Node collector for a given device, never both. Keep the private data directory, queue, and checkpoints out of synchronized folders and do not delete them casually. Windows and Linux have not been tested on physical systems.
+Overview entries open Activity or Quota. Activity cards lead to full model / device breakdowns and heatmap / trend records. Quota switches between official used / remaining quota, estimated device shares, and actual synchronized cumulative Codex tokens. The last chart does not reuse extrapolated attribution tokens.
 
-**Pause and uninstall:** pause collection or disable the background service in Settings → Data. Before uninstalling, disable Hub sync and the background service, quit, then move the app to Trash. Existing data is retained by default. To roll back, restore the previous app and check its sync capabilities first.
+Official quota is read roughly every five minutes; manual refresh can request a fresh reading. Sign in again in Codex if credentials expire. Quota windows remain separate from usage ranges and are not added across devices. Stale quota is not assumed reset, and missing data is not zero.
+
+Quota allocation extrapolates model cost weights from up to seven recent complete days and requires such data in the Hub. Costs are API-equivalent estimates, not subscription charges. This version does not predict remaining tokens, attribute individual requests precisely, or send reset notifications.
+
+### Hub compatibility and privacy
+
+Enter an existing Hub address and shared secret in Settings → Data. Read-only viewing is available; bind the existing device and enable uploads to send local increments. The client collects and displays Codex while preserving other clients' historical fields during synchronization.
+
+The baseline is the Token Monitor v0.56.0 Hub API. Cycle records require the extended `/api/quota/cycles` endpoint and capability declaration; a basic upstream Hub does not automatically include it. Older Hubs retain basic statistics and estimated windows. When the capability exists but no matching cycle is confirmed, attribution pauses. Cycle starts are inferred from stable deadlines minus window lengths, not exact observations of percentage resets.
+
+Local logs and existing Codex credentials are read without credential renewal or model sessions. Optional Hub uploads include device identifiers, names, system information, versions, model/token summaries, daily/monthly history, and pseudonymous quota observations. They exclude prompts, conversation content, log paths, email addresses, and sign-in credentials. The Hub secret is an owner-only 0600 plaintext file; trust the Hub you connect to.
+
+Data remains under `~/Library/Application Support/Token Monitor Native Beta 2/` for compatibility. Keep it private, including upload queues and baselines. Deleted, never-collected logs cannot be recovered.
+
+### Customize and remove
+
+Customize section visibility/order, colors, menu bar metrics, and local display names in Settings. Display names do not change Hub identifiers, and resetting colors does not remove them. Language follows macOS, including per-app language settings.
+
+Use `⌘,` for Settings, `⌘R` to refresh, `⌘W` to close the window, and `⌘Q` to quit the interface. Collection continues independently. Before uninstalling or rolling back, disable uploads and the background service, then quit. App removal retains local data by default. Restore the matching previous app/data only after stopping the new uploader.

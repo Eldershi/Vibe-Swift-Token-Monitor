@@ -21,6 +21,8 @@ extension HomeSection {
         switch self {
         case .activity: "calendar"
         case .trends: "chart.xyaxis.line"
+        case .devices: "server.rack"
+        case .models: "square.stack.3d.up"
         default: page.symbol
         }
     }
@@ -28,8 +30,8 @@ extension HomeSection {
         switch self {
         case .usage: .overview
         case .quota: .quota
-        case .devices: .devices
-        case .models: .models
+        case .devices: .activity
+        case .models: .activity
         case .activity: .activity
         case .trends: .activity
         }
@@ -66,33 +68,46 @@ struct HomeLayoutSettings: View {
     var body: some View {
         Form {
             Section(L10n.text("首页栏目")) {
-                ForEach(store.preferences.homeSections.filter { $0 != .usage }) { section in
-                    HStack(spacing: 12) {
-                        Toggle(section.title, isOn: Binding(
-                            get: { !store.preferences.hiddenHomeSections.contains(section) },
-                            set: { visible in
-                                if visible { store.preferences.hiddenHomeSections.remove(section) }
-                                else { store.preferences.hiddenHomeSections.insert(section) }
-                            }
-                        ))
-                        Spacer()
-                        HomeDragHandle(section: section, handles: dragHandles, move: { destination in
-                            store.preferences.moveHomeSection(section, to: destination)
-                        }, finish: { store.savePreferences() }, step: { offset in
-                            store.preferences.moveHomeSection(section, by: offset)
-                            store.savePreferences()
-                        })
-                            .frame(width: 28, height: 28)
-                            .help(L10n.text("拖动以调整%@的位置", String(describing: section.title)))
-                            .accessibilityAction(named: L10n.text("上移")) { store.preferences.moveHomeSection(section, by: -1); store.savePreferences() }
-                            .accessibilityAction(named: L10n.text("下移")) { store.preferences.moveHomeSection(section, by: 1); store.savePreferences() }
+                VStack(spacing: 4) {
+                    ForEach(store.preferences.homeSections.filter { $0 != .usage }) { section in
+                        HStack(spacing: 12) {
+                            Toggle(section.title, isOn: Binding(
+                                get: { !store.preferences.hiddenHomeSections.contains(section) },
+                                set: { visible in
+                                    if visible { store.preferences.hiddenHomeSections.remove(section) }
+                                    else { store.preferences.hiddenHomeSections.insert(section) }
+                                }
+                            ))
+                            Spacer()
+                            HomeDragHandle(section: section, handles: dragHandles, move: { destination in
+                                store.preferences.moveHomeSection(section, to: destination)
+                            }, finish: { store.savePreferences() }, step: { offset in
+                                store.preferences.moveHomeSection(section, by: offset)
+                                store.savePreferences()
+                            })
+                                .frame(width: 28, height: 24)
+                                .help(L10n.text("拖动以调整%@的位置", String(describing: section.title)))
+                                .accessibilityAction(named: L10n.text("上移")) { store.preferences.moveHomeSection(section, by: -1); store.savePreferences() }
+                                .accessibilityAction(named: L10n.text("下移")) { store.preferences.moveHomeSection(section, by: 1); store.savePreferences() }
+                        }
+                        .frame(height: 28)
+                        .contentShape(Rectangle())
                     }
-                    .contentShape(Rectangle())
                 }
             }
-            Section(L10n.text("额度")) { HomeQuotaSettings(store: store) }
+            Section(L10n.text("额度")) {
+                HomeQuotaSettings(store: store)
+                    .disabled(store.preferences.hiddenHomeSections.contains(.quota))
+                if store.preferences.hiddenHomeSections.contains(.quota) {
+                    Text(L10n.text("请先开启首页的额度栏目")).font(.caption).foregroundStyle(.secondary)
+                }
+            }
             Section(L10n.text("设备")) {
                 Toggle(L10n.text("首页显示设备用量条"), isOn: $store.preferences.showHomeDeviceUsageBars)
+                    .disabled(store.preferences.hiddenHomeSections.contains(.devices))
+                if store.preferences.hiddenHomeSections.contains(.devices) {
+                    Text(L10n.text("请先开启首页的设备栏目")).font(.caption).foregroundStyle(.secondary)
+                }
             }
             Section(L10n.text("图表")) { ChartStyleSettings(store: store) }
             Section(L10n.text("菜单栏")) { MenuBarSettings(store: store) }
@@ -102,11 +117,10 @@ struct HomeLayoutSettings: View {
                     store.preferences.hiddenHomeSections = [.devices]
                     store.preferences.homeQuotaSelection = nil
                     store.preferences.showHomeDeviceUsageBars = false
-                    store.preferences.menuBarTokens = true
-                    store.preferences.menuBarShortQuota = true
-                    store.preferences.menuBarWeeklyQuota = false
-                    store.preferences.menuBarStyle = .text
-                    store.menuQuotaSelection = nil
+                    store.preferences.menuBarTokens = false
+                    store.preferences.menuBarShortQuota = false
+                    store.preferences.menuBarWeeklyQuota = true
+                    store.preferences.menuBarStyle = .rings
                 }
             }
         }.formStyle(.grouped)
@@ -220,14 +234,11 @@ struct ActivityDetailView: View {
             Text(L10n.text("热力图")).font(.subheadline.weight(.semibold))
             ActivityView(store: store, showHeading: false)
             Text(L10n.text("趋势")).font(.subheadline.weight(.semibold))
-            if store.trendUnsupported { Text(L10n.text("暂不支持小时趋势")).font(.caption).foregroundStyle(.secondary) }
-            else {
-                UsageChart(points: store.trendPoints(), granularity: store.trendGranularity, tint: store.preferences.accentColor,
-                           animationMemory: store.detailTrendAnimation)
-                    .id("activity-detail-trend-chart")
-            }
+            UsageChart(points: store.trendPoints(), granularity: store.trendGranularity, tint: store.preferences.accentColor,
+                       animationMemory: store.detailTrendAnimation)
+                .id("activity-detail-trend-chart")
             HistoryNotice(store: store)
-            if !store.trendUnsupported { ActivityRecordsView(store: store) }
+            ActivityRecordsView(store: store)
         }
     }
 }

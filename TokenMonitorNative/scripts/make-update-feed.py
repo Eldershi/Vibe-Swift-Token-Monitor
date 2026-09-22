@@ -12,7 +12,7 @@ info = plistlib.loads((a.app / 'Contents/Info.plist').read_bytes())
 version, build = info['TokenMonitorReleaseVersion'], info['CFBundleVersion']
 assert re.fullmatch(r'\d+\.\d+\.\d+(?:-beta\.[1-9]\d*)?', version)
 assert re.fullmatch(r'[1-9]\d*', build)
-assert info['CFBundleIdentifier'] == 'local.tokenmonitor.native.beta'
+assert info['CFBundleIdentifier'] == 'local.tokenmonitor.native.beta2'
 assert len(base64.b64decode(info['SUPublicEDKey'], validate=True)) == 32
 # Prove the signing file matches the public key embedded in the app before generating any feed.
 source = pathlib.Path(__file__).with_name('update-signing-key.swift')
@@ -33,10 +33,10 @@ ET.SubElement(item, '{'+ns+'}shortVersionString').text = version
 ET.SubElement(item, '{'+ns+'}minimumSystemVersion').text = '26.0'
 url = 'https://github.com/Eldershi/Vibe-Swift-Token-Monitor/releases/download/v' + version + '/' + a.archive.name
 ET.SubElement(item, 'enclosure', {'url': url, 'length': str(a.archive.stat().st_size), 'type': 'application/octet-stream', '{'+ns+'}edSignature': sig})
-feed = a.archive.parent / 'appcast.xml'
+feed = a.archive.parent / 'appcast-native.xml'
 ET.indent(rss)
 ET.ElementTree(rss).write(feed, encoding='utf-8', xml_declaration=True)
 subprocess.run([str(a.sign_tool), '--ed-key-file', str(a.key), str(feed)], check=True)
 subprocess.run([str(a.sign_tool), '--ed-key-file', str(a.key), '--verify', str(feed)], check=True)
 subprocess.run([str(a.sign_tool), '--ed-key-file', str(a.key), '--verify', str(a.archive), sig], check=True)
-print('Signed appcast.xml and archive verified. Upload both only when publishing the matching release.')
+print('Signed appcast-native.xml and archive verified. Upload both only when publishing the matching release.')

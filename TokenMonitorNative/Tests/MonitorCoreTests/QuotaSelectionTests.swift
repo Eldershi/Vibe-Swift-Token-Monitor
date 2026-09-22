@@ -78,20 +78,17 @@ final class QuotaSelectionTests: XCTestCase {
         raw["devices"] = []
         let stamp = "2026-09-14T12:00:00Z"
         let quota = try JSONSerialization.jsonObject(with: JSONEncoder().encode(provider([weekly, session, spark].joined(separator: ",")))) as! [String: Any]
-        raw["limits"] = ["providers": [quota.merging(["updatedAt": stamp]) { _, new in new }]]
+        raw["limits"] = ["providers": [quota.merging(["updatedAt": stamp]) { _, new in new }, quota.merging(["provider": "claude", "updatedAt": stamp]) { _, new in new }]]
         store.now = DateCodec.parse(stamp)!
         store.stats = try Stats.decode(JSONSerialization.data(withJSONObject: raw))
         store.online = true
-        store.preferences.tool = "claude"
         XCTAssertEqual(store.quotaChoices.count, 3)
         XCTAssertEqual(store.homeQuotaProviders.first?.windows.count, 2)
-        XCTAssertTrue(store.quotaProviders.isEmpty)
-        XCTAssertTrue(store.quotaDonutChoices.isEmpty)
-        store.preferences.tool = "codex"
         XCTAssertEqual(store.quotaProviders.first?.windows.count, 3)
         XCTAssertTrue(store.quotaDonutChoices.contains { $0.window.isAdditional })
-        store.preferences.tool = ""
         XCTAssertEqual(store.quotaProviders.count, 1)
+        XCTAssertEqual(store.quotaReports.map(\.provider), ["codex"])
+        XCTAssertEqual(store.stats?.limits?.providers.count, 2)
         store.preferences.homeQuotaSelection = [store.availableQuotaProviders[0].windows[2].selectionID(provider: "codex")]
         XCTAssertEqual(store.homeQuotaProviders.first?.windows.first?.limitId, "spark")
         store.now = store.now.addingTimeInterval(3600)

@@ -81,26 +81,23 @@ import XCTest
     }
     func testSourceVisibilityPreservesZeroAndHidesMissingOrUnreported() throws {
         let s = try visibilityStore(clients: ["codex": 0, "claude": 100], status: ["claude": "missing"])
-        XCTAssertEqual(s.tools, ["codex"])
+        XCTAssertTrue(s.hasCodexData)
         XCTAssertEqual(s.stats?.periods["today"]?.totalTokens, 125000, "Backend totals must not be rewritten")
-        s.preferences.tool = "claude"; s.reconcileToolSelection()
-        XCTAssertEqual(s.preferences.tool, "codex")
-        s.preferences.tool = ""
         XCTAssertEqual(s.modelRows.map(\.name), ["gpt-example"])
     }
     func testSourceVisibilityUsesReportsAndPreservesDisconnectedSnapshot() throws {
         let s = try visibilityStore(clients: ["codex": 0])
         s.now = s.now.addingTimeInterval(3600)
-        XCTAssertTrue(s.tools.isEmpty)
+        XCTAssertFalse(s.hasCodexData)
         s.online = false
-        XCTAssertEqual(s.tools, ["codex"], "A Hub disconnect must preserve the last valid snapshot")
+        XCTAssertTrue(s.hasCodexData, "A Hub disconnect must preserve the last valid snapshot")
         let expired = try visibilityStore(clients: ["codex": 100], stale: true)
-        XCTAssertTrue(expired.tools.isEmpty)
+        XCTAssertFalse(expired.hasCodexData)
     }
     func testFreshDeviceKeepsSourceWhenAnotherDeviceIsStale() throws {
         let s = store(); s.stats = try Stats.decode(fixture("stats")); s.online = true
         s.now = DateCodec.parse("2026-09-13T04:01:00Z")!
-        XCTAssertEqual(s.tools, ["claude", "codex"])
+        XCTAssertTrue(s.hasCodexData)
     }
 
     func testCancelledClientRejectsLateDataAndStreamRequests() async throws {

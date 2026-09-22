@@ -87,7 +87,7 @@ import ServiceManagement
     }
     func installAvailable() {
         guard !Self.isIsolatedRun, let release = available, !installerBusy, controller?.updater.sessionInProgress != true else { return }
-        guard let url = release.appcastURL else {
+        guard let url = release.nativeAppcastURL else {
             message = L10n.text("此版本尚未提供应用内更新包，请前往 GitHub 下载。")
             return
         }
@@ -120,7 +120,7 @@ import ServiceManagement
     /// Called by the existing asynchronous termination path, after explicit Sparkle confirmation.
     func prepareForTermination() async -> Bool {
         guard installing, Identity.isBeta else { return true }
-        let service = SMAppService.agent(plistName: "local.tokenmonitor.native.beta.backend.plist")
+        let service = SMAppService.agent(plistName: Identity.servicePlist)
         serviceWasEnabled = service.status == .enabled
         do {
             if service.status != .notRegistered && service.status != .notFound { try await service.unregister() }
@@ -134,7 +134,7 @@ import ServiceManagement
     private func restoreBackendAfterCancelledInstall() {
         guard serviceWasEnabled else { return }
         serviceWasEnabled = false
-        try? SMAppService.agent(plistName: "local.tokenmonitor.native.beta.backend.plist").register()
+        try? SMAppService.agent(plistName: Identity.servicePlist).register()
     }
 }
 

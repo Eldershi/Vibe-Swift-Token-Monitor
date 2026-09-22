@@ -46,10 +46,12 @@ public struct GitHubRelease: Decodable, Sendable {
               let local = ReleaseVersion(current) else { return false }
         return local < remote
     }
-    public var appcastURL: URL? {
+    public var appcastURL: URL? { feedURL(named: "appcast.xml") }
+    public var nativeAppcastURL: URL? { feedURL(named: "appcast-native.xml") }
+    private func feedURL(named name: String) -> URL? {
         let expected = URL(string: "https://github.com/\(Self.repository)/releases/download/")!
-            .appendingPathComponent(tag_name).appendingPathComponent("appcast.xml")
-        return assets.first { $0.name == "appcast.xml" && $0.browser_download_url == expected }?.browser_download_url
+            .appendingPathComponent(tag_name).appendingPathComponent(name)
+        return assets.first { $0.name == name && $0.browser_download_url == expected }?.browser_download_url
     }
 }
 

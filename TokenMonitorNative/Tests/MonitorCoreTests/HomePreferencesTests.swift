@@ -13,7 +13,7 @@ final class HomePreferencesTests: XCTestCase {
         XCTAssertEqual(settings.schemaVersion, 4)
         XCTAssertEqual(settings.hubAddress, "https://hub.example.invalid")
         XCTAssertTrue(settings.connected); XCTAssertTrue(settings.pinned)
-        XCTAssertEqual(settings.tool, "claude"); XCTAssertEqual(settings.period, .allTime)
+        XCTAssertEqual(settings.period, .allTime)
         XCTAssertEqual(settings.visibleHomeSections, [.usage, .quota, .models, .activity, .trends])
         XCTAssertEqual(settings.themeColor, .system)
         XCTAssertEqual(try Data(contentsOf: file.url.appendingPathExtension("pre-v4-backup")), original)

@@ -5,9 +5,16 @@ import MonitorCore
 enum LiveVerification {
     @MainActor static func run() async -> Int32 {
         do {
-            let prefs = try PreferencesFile(url:Identity.directory.appendingPathComponent("settings.json")).load()
-            guard let secret = try Keychain.load(address:prefs.hubAddress) else { throw HubError.invalidSecret }
-            let client = HubClient(connection:try HubConnection(address:prefs.hubAddress,secret:secret))
+            let connection: HubConnection
+            if Identity.isBeta {
+                let endpoint = try BetaEndpoint.load(from: Identity.directory.appendingPathComponent("Backend/endpoint.json"))
+                connection = try endpoint.connection()
+            } else {
+                let prefs = try PreferencesFile(url:Identity.directory.appendingPathComponent("settings.json")).load()
+                guard let secret = try Keychain.load(address:prefs.hubAddress) else { throw HubError.invalidSecret }
+                connection = try HubConnection(address:prefs.hubAddress,secret:secret)
+            }
+            let client = HubClient(connection:connection)
             defer { client.cancel() }
             _ = try await client.health()
             let data = try await client.data("api/stats")
@@ -53,7 +60,7 @@ enum LiveVerification {
                 group.addTask { try await Task.sleep(for:.seconds(15)); throw HubError.disconnected }
                 _ = try await group.next(); group.cancelAll()
             }
-            print("PASS: health, \(checks) period/tool totals and model breakdowns, \(stats.devices.count) device(s), history, authenticated SSE snapshot, own Keychain access")
+            print("PASS: health, \(checks) period/tool totals and model breakdowns, \(stats.devices.count) device(s), history, authenticated SSE snapshot")
             return 0
         } catch { fputs("FAIL: \(error.localizedDescription)\n",stderr); return 1 }
     }

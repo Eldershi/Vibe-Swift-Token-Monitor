@@ -18,7 +18,7 @@ struct ActivityRecordsView: View {
     }
     var body: some View {
         let years = ActivityRecords.years(points: store.historyPoints(), now: store.historyDay)
-        let scope = ActivityExpansion.Scope(source: store.preferences.hubAddress, tool: store.preferences.tool)
+        let scope = ActivityExpansion.Scope(source: store.preferences.hubAddress, tool: "codex")
         VStack(alignment: .leading, spacing: 10) {
             Text(L10n.text("用量明细")).font(.subheadline.weight(.semibold))
             if store.preferences.period == .allTime {

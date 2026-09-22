@@ -42,7 +42,6 @@
 "停用 Hub 同步" = "Disable Hub sync";
 "停用后台" = "Disable background service";
 "健康检查" = "health check";
-"全部工具" = "All tools";
 "共享 Hub 全部设备" = "Shared Hub All devices";
 "共享密钥" = "Shared secret";
 "共享密钥不正确。请在“数据”设置中检查密钥。" = "Incorrect shared secret. Check the secret in Data settings.";
@@ -81,7 +80,6 @@
 "已保存并启用" = "Saved and enabled";
 "已保存连接，正在同步真实统计。" = "Connection saved. Syncing statistics.";
 "已发现日志来源 等待用量" = "Log source found Waiting for usage";
-"已完成访问请求，正在重新读取额度。" = "Access request completed. Reading quota again.";
 "已暂停 等待唤醒" = "Paused Waiting to wake";
 "已更新" = "Updated";
 "已获取" = "Available";
@@ -106,7 +104,6 @@
 "打开系统语言设置" = "Open language settings";
 "打开系统颜色选择器，选择任意主题色" = "Open the system color picker to choose an accent color";
 "拖动以调整%@的位置" = "Drag to reposition %@";
-"授权读取 Claude 额度" = "Allow Claude quota access";
 "排序" = "Sort by";
 "接口基线" = "API baseline";
 "支持 Codex 和 Claude Code。本机日志用于恢复历史。共享 Hub 的连接与设备绑定在下方设置。" = "Supports Codex and Claude Code. Local logs restore history. Configure the shared Hub connection and device binding below.";
@@ -137,7 +134,6 @@
 "未知" = "Unknown";
 "未知字段位置" = "unknown field location";
 "未能停用后台，请在系统设置中检查后台项目" = "Could not disable the background service. Check background items in System Settings.";
-"未获得钥匙串访问权限；日志统计仍可继续。" = "Keychain access was not granted. Log statistics can continue.";
 "未配置登录" = "Not signed in";
 "本地构建 尚未配置在线更新源" = "Local build Online updates not configured";
 "本月" = "Month";
@@ -232,7 +228,6 @@
 "连接状态" = "Connection status";
 "退出 %@" = "Quit %@";
 "退出 Beta 界面后仍继续采集，并在登录时恢复。暂停会保留后台连接；停用会注销后台服务。原版可保留在仅本机模式用于参考，避免同时向共享 Hub 上传。" = "Collection continues after quitting Beta and resumes at login. Pausing retains the background connection; disabling unregisters the service. Keep the original app in local-only mode for reference to avoid duplicate uploads to the shared Hub.";
-"选择工具，当前%@" = "Select tool, currently %@";
 "通用" = "General";
 "通过随附安装脚本升级，可恢复上一版本。未来可接入独立签名更新源；当前未配置在线更新。" = "Upgrade with the included installation script, with rollback to the previous version. Online updates are not configured; a separately signed update source may be added later.";
 "采集失败，将自动重试" = "Collection failed. Retrying automatically.";
@@ -327,7 +322,6 @@
 
 "小圆环与百分比" = "Small rings and percentages";
 
-"菜单栏额度来源" = "Menu bar quota source";
 
 "自动选择" = "Automatic";
 
@@ -377,7 +371,7 @@
 
 "换算暂不可用，请检查数据与价格状态" = "Conversion unavailable; check data and price status";
 
-"无法读取额度换算，请确认正在运行 Beta 2 后台" = "Cannot read quota conversion; check that the Beta 2 backend is running";
+"无法读取额度换算，请确认后台正在运行" = "Cannot read quota conversion; check that the background service is running";
 
 "当前重置周期" = "Current quota window";
 
@@ -496,5 +490,72 @@
 "暂无可换算的匹配数据" = "No matching usage yet";
 "已同步" = "Synced";
 "历史结果" = "Historical result";
-"暂不支持小时趋势" = "Hourly trends aren’t supported";
 "每小时 Token 用量" = "Hourly token usage";
+"Hub 正在同步，请稍后重试。" = "Hub is syncing. Try again shortly.";
+"本机历史尚未准备完成，请先刷新后重试。" = "Local history is not ready. Refresh before trying again.";
+"所选设备已不在此 Hub 中，请重新验证并选择。" = "The selected device is no longer in this Hub. Validate and select it again.";
+"现有同步基线与所选 Hub 设备不一致，已停止以避免重复计数。" = "The existing sync baseline does not match the selected Hub device. Sync was stopped to prevent double counting.";
+"Hub 地址或设备选择无效，请重新验证。" = "The Hub address or device selection is invalid. Validate it again.";
+"Hub 密钥无效，请重新输入。" = "The Hub secret is invalid. Enter it again.";
+"Hub 请求受限，请稍后重试。" = "Hub requests are rate limited. Try again later.";
+"无法安全保存 Hub 密钥。" = "The Hub secret could not be saved securely.";
+"Hub 配置失败，请检查连接后重试。" = "Hub setup failed. Check the connection and try again.";
+
+"Hub 只读未启用" = "Hub read-only is off";
+"Hub 只读已连接" = "Hub read-only connected";
+"已连接 Hub 只读" = "Connected to Hub (read-only)";
+"Hub 只读实验" = "Hub Read-Only Experiment";
+"读取状态" = "Read status";
+"最后成功读取" = "Last successful read";
+"保存并启用只读Hub" = "Save and enable read-only Hub";
+"停用只读Hub" = "Disable read-only Hub";
+"已保存并启用只读Hub" = "Read-only Hub enabled";
+
+"原生额度换算尚未迁移" = "Native quota conversion is not yet available";
+"等待首次上传" = "Waiting for first upload";
+"按同账号设备近期完整日的已记录模型费用，分摊官方已用额度；并非实际额度消耗明细。" = "Allocates official used quota across same-account devices using recorded model costs from recent complete days; this is not an actual quota usage ledger.";
+"估算费用权重" = "Estimated cost weight";
+
+"周期待确认" = "Awaiting cycle confirmation";
+
+"周期开始" = "Cycle start";
+
+"预计周期开始" = "Estimated cycle start";
+
+"下次重置" = "Next reset";
+
+"周期记录" = "Cycle history";
+
+"当前无法更新周期记录" = "Cycle history is currently unavailable";
+
+"首次重建" = "Initial reconstruction";
+
+"周期变更" = "Cycle changed";
+
+"确认时间" = "Confirmed at";
+
+"请先开启首页的设备栏目" = "Enable the Devices section on Home first";
+
+"请先开启首页的额度栏目" = "Enable the Quota section on Home first";
+
+"额度概览" = "Quota overview";
+
+"设备额度分摊" = "Device quota allocation";
+
+"设备 Token 总计" = "Device token totals";
+
+"未分摊额度" = "Unattributed quota";
+
+"下一张图表" = "Next chart";
+
+"上一张图表" = "Previous chart";
+
+"图表统计口径" = "Chart calculation details";
+
+"额度概览采用官方读数；设备额度分摊按近期完整日费用估算。设备 Token 总计采用各设备已同步的 Codex 累计日志统计，不按额度换算，也不限定当前重置周期。" = "Quota overview uses the official reading. Device quota allocation is estimated from recent complete-day costs. Device token totals use synced cumulative Codex log statistics, without quota conversion or restriction to the current reset cycle.";
+
+"返回活动" = "Back to Activity";
+
+"自定义%@名称" = "Custom name for %@";
+
+"返回额度" = "Back to Quota";

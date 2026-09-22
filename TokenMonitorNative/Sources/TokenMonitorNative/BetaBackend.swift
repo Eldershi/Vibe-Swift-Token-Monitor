@@ -2,6 +2,24 @@ import SwiftUI
 import ServiceManagement
 import MonitorCore
 
+private struct BetaHubErrorResponse: Decodable { let error: String }
+private struct BetaHubConfigurationError: LocalizedError {
+    let code: String
+    var errorDescription: String? {
+        switch code {
+        case "busy": L10n.text("Hub 正在同步，请稍后重试。")
+        case "localHistoryNotReady": L10n.text("本机历史尚未准备完成，请先刷新后重试。")
+        case "deviceNotMatched": L10n.text("所选设备已不在此 Hub 中，请重新验证并选择。")
+        case "existingBaselineRequiresExplicitReset": L10n.text("现有同步基线与所选 Hub 设备不一致，已停止以避免重复计数。")
+        case "invalidConfiguration": L10n.text("Hub 地址或设备选择无效，请重新验证。")
+        case "invalidCredential", "credentialUnavailable", "unauthorized": L10n.text("Hub 密钥无效，请重新输入。")
+        case "rateLimited": L10n.text("Hub 请求受限，请稍后重试。")
+        case "credentialSaveFailed": L10n.text("无法安全保存 Hub 密钥。")
+        default: L10n.text("Hub 配置失败，请检查连接后重试。")
+        }
+    }
+}
+
 @MainActor @Observable final class BetaBackend {
     static let shared = BetaBackend()
     var message = L10n.text("等待后台启动")
@@ -10,22 +28,35 @@ import MonitorCore
     var requiresApproval = false
     var localOnly = UserDefaults.standard.bool(forKey: "betaViewLocal")
     var syncMessage: String {
-        guard let sync = snapshot?.sync, sync.enabled else { return L10n.text("Hub 同步未启用") }
+        guard let sync = snapshot?.sync, sync.enabled else { return Identity.isNativeBeta2 ? L10n.text("Hub 只读未启用") : L10n.text("Hub 同步未启用") }
         if let error = sync.error { return error == "unauthorized" ? L10n.text("Hub 密钥需要检查") : error == "credentialUnavailable" ? L10n.text("请在“数据”设置中输入地址和密钥") : error == "rateLimited" ? L10n.text("Hub 请求受限，稍后重试") : L10n.text("Hub 离线 保留上次汇总") }
+        if Identity.isNativeBeta2 {
+            if sync.uploadEnabled == true {
+                if sync.syncing { return L10n.text("正在同步 Hub…") }
+                return sync.lastSuccess == nil ? L10n.text("等待首次上传") : L10n.text("Hub 已连接 多设备同步")
+            }
+            return L10n.text("Hub 只读已连接")
+        }
         return sync.syncing ? L10n.text("正在同步 Hub…") : L10n.text("Hub 已连接 多设备同步")
     }
     func selectLocal(_ local: Bool) { localOnly = local; UserDefaults.standard.set(local, forKey: "betaViewLocal"); reconnect() }
-    func configureHub(address: String = "", secret: String = "", deviceId: String = "", enabled: Bool) async throws {
+    func configureHub(address: String = "", secret: String = "", deviceId: String = "", enabled: Bool,
+                      uploadEnabled: Bool = false) async throws {
         guard let endpoint else { throw HubError.disconnected }
         var request = try endpoint.connection().request("api/beta/hub")
         request.httpMethod = "POST"; request.timeoutInterval = 70
-        request.httpBody = try JSONSerialization.data(withJSONObject: ["address": address, "secret": secret, "deviceId": deviceId, "enabled": enabled])
-        let (_, response) = try await URLSession.shared.data(for: request)
-        guard (response as? HTTPURLResponse)?.statusCode == 200 else { throw HubError.incompatible(L10n.text("Hub 配置失败：检查本机历史、设备身份和连接")) }
+        request.httpBody = try JSONSerialization.data(withJSONObject: ["address": address, "secret": secret,
+                                                                  "deviceId": deviceId, "enabled": enabled,
+                                                                  "uploadEnabled": uploadEnabled])
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard (response as? HTTPURLResponse)?.statusCode == 200 else {
+            let code = (try? JSONDecoder().decode(BetaHubErrorResponse.self, from: data).error) ?? "hubConfigurationFailed"
+            throw BetaHubConfigurationError(code: code)
+        }
         reconnect(); await poll()
     }
     var enabled = !UserDefaults.standard.bool(forKey: "betaBackgroundDisabled")
-    @ObservationIgnored private let service = SMAppService.agent(plistName: "local.tokenmonitor.native.beta.backend.plist")
+    @ObservationIgnored private let service = SMAppService.agent(plistName: Identity.servicePlist)
     @ObservationIgnored private var monitor: Task<Void, Never>?
     @ObservationIgnored private var endpoint: BetaEndpoint?
     @ObservationIgnored private var connectedSession: String?
@@ -70,7 +101,12 @@ import MonitorCore
     func reconnect() { connectedSession = nil }
     func openSystemSettings() { SMAppService.openSystemSettingsLoginItems() }
     func command(_ action: String) async {
-        guard ["refresh", "pause", "resume", "restart"].contains(action), let endpoint else { return }
+        guard ["refresh", "pause", "resume", "restart"].contains(action), !busy else { return }
+        guard let endpoint else {
+            message = L10n.text("等待后台连接…")
+            reconnect()
+            return
+        }
         busy = true; defer { busy = false }
         do {
             var request = try endpoint.connection().request("api/beta/\(action)")
@@ -88,11 +124,7 @@ import MonitorCore
         let url = Identity.directory.appendingPathComponent("Backend/endpoint.json")
         do {
             let value = try await Task.detached(priority: .utility) {
-                let attributes = try FileManager.default.attributesOfItem(atPath: url.path)
-                guard (attributes[.ownerAccountID] as? NSNumber)?.uint32Value == getuid(),
-                      (attributes[.posixPermissions] as? NSNumber)?.intValue == 0o600,
-                      attributes[.type] as? FileAttributeType == .typeRegular else { throw HubError.disconnected }
-                return try JSONDecoder().decode(BetaEndpoint.self, from: Data(contentsOf: url))
+                try BetaEndpoint.load(from: url)
             }.value
             let connection = try value.connection()
             let probe = HubClient(connection: connection); defer { probe.cancel() }
@@ -119,8 +151,6 @@ import MonitorCore
 
 struct BetaBackendSettings: View {
     @Bindable var backend = BetaBackend.shared
-    @State private var authorizingClaude = false
-    @State private var authorizationMessage: String?
     private func quotaMessage(_ status: String) -> String {
         switch status {
         case "ok": L10n.text("已获取")
@@ -155,23 +185,11 @@ struct BetaBackendSettings: View {
                     Button(L10n.text("停用后台")) { Task { await backend.disable() } }.disabled(backend.busy)
                 } else { Button(L10n.text("启用后台")) { backend.enable() } }
             }
-            let configured = (backend.snapshot?.providers ?? []).filter { !["notConfigured", "disabled"].contains($0.status) }.sorted { $0.provider == "codex" && $1.provider != "codex" }
+            let configured = (backend.snapshot?.providers ?? []).filter { $0.provider == "codex" && !["notConfigured", "disabled"].contains($0.status) }
             if !configured.isEmpty {
             Section(L10n.text("账号额度")) {
-                if backend.snapshot?.providers?.contains(where: { $0.provider == "claude" && $0.status == "unauthorized" }) == true {
-                    Button(L10n.text("授权读取 Claude 额度")) { Task {
-                        authorizingClaude = true; defer { authorizingClaude = false }
-                        do {
-                            try await Task.detached { try Keychain.authorizeClaude() }.value
-                            authorizationMessage = L10n.text("已完成访问请求，正在重新读取额度。")
-                            await backend.command("refresh")
-                        } catch { authorizationMessage = L10n.text("未获得钥匙串访问权限；日志统计仍可继续。") }
-                    } }.disabled(authorizingClaude)
-                }
-                if let authorizationMessage { Text(authorizationMessage).font(.caption) }
-
                 ForEach(configured, id: \.provider) { provider in
-                    LabeledContent(provider.provider == "codex" ? "Codex" : provider.provider == "claude" ? "Claude Code" : provider.provider, value: quotaMessage(provider.status))
+                    LabeledContent("Codex", value: quotaMessage(provider.status))
                 }
             }
             }
