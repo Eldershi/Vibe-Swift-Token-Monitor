@@ -58,7 +58,8 @@ struct QuotaDonutView: View {
                 DistributionChart(distribution: Distribution([
                     .init(id: "quota:remaining", name: L10n.text("剩余额度"), value: selected.percent),
                     .init(id: "quota:used", name: L10n.text("已用额度"), value: 100 - selected.percent)
-                ]), quota: true, center: selected.percent.formatted(.number.precision(.fractionLength(0...1))) + "%", style: store.preferences.chartStyle)
+                ]), quota: true, center: selected.percent.formatted(.number.precision(.fractionLength(0...1))) + "%",
+                                   centerMetric: selected.percent, style: store.preferences.chartStyle)
             } else {
                 DistributionChart(distribution: Distribution([]), quota: true, center: "—", style: store.preferences.chartStyle)
             }
@@ -70,11 +71,13 @@ struct QuotaRingView: View {
     let percent: Double?
     let style: ChartStyle
     var fixedLegendHeight: CGFloat? = nil
+    var cycleMotion = false
     var body: some View {
         let value = percent.flatMap { $0.isFinite && (0...100).contains($0) ? $0 : nil }
         DistributionChart(distribution: Distribution(value.map { [
             .init(id: "quota:remaining", name: L10n.text("剩余额度"), value: $0),
             .init(id: "quota:used", name: L10n.text("已用额度"), value: 100 - $0)
-        ] } ?? []), quota: true, center: value.map { $0.formatted(.number.precision(.fractionLength(0...1))) + "%" } ?? "—", style: style, fixedLegendHeight: fixedLegendHeight)
+        ] } ?? []), quota: true, center: value.map { $0.formatted(.number.precision(.fractionLength(0...1))) + "%" } ?? "—",
+                             centerMetric: value, style: style, fixedLegendHeight: fixedLegendHeight, cycleMotion: cycleMotion)
     }
 }

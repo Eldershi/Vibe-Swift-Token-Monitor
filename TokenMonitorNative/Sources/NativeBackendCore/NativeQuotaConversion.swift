@@ -7,7 +7,8 @@ import CoreFoundation
 public enum NativeQuotaConversion {
     public static func make(stats: Data, devices: Data, deviceID: String, hourly: Data?,
                             selectedChoiceID: String? = nil, cycleEvents: [[String: Any]] = [],
-                            cycleCapability: Bool = false, now: Date = Date()) throws -> Data {
+                            cycleCapability: Bool = false, observations: [[String: Any]] = [],
+                            now: Date = Date()) throws -> Data {
         let stats = try object(stats), registry = try object(devices)
         let deviceRows = registry["devices"] as? [[String: Any]] ?? []
         let providers = (stats["limits"] as? [String: Any])?["providers"] as? [[String: Any]] ?? []
@@ -104,6 +105,10 @@ public enum NativeQuotaConversion {
             "lastSuccessful": NSNull(), "error": NSNull(), "result": result,
             "cycleRecordsAvailable": cycleCapability, "cycleEvents": matchingEvents,
             "pricing": ["error": "nativePriceRefreshUnavailable"], "prices": NSNull()]
+        response["cycleTimeline"] = NativeQuotaCycleTimeline.make(
+            events: matchingEvents, observations: observations, devices: deviceRows,
+            accountID: accountID, accountKey: accountKey, sourceID: sourceID,
+            selected: selected, currentResult: result, now: now)
         if let hourly, let value = try? JSONSerialization.jsonObject(with: hourly) {
             response["trend"] = ["hourly": value]
         }
@@ -147,18 +152,18 @@ public enum NativeQuotaConversion {
             for row in sample {
                 guard let codex = (row["perClient"] as? [String: Any])?["codex"] as? [String: Any],
                       let codexTokens = number(codex["tokens"]),
-                      let codexCost = number(codex["cost"]),
+                      let codexCost = number(codex["quotaWeight"] ?? codex["cost"]),
                       let models = row["perModel"] as? [String: [String: Any]] else {
                     completeSample = false; break
                 }
                 let tokenSum = models.values.reduce(0.0) { $0 + (number($1["tokens"]) ?? 0) }
-                let costSum = models.values.reduce(0.0) { $0 + (number($1["cost"]) ?? 0) }
+                let costSum = models.values.reduce(0.0) { $0 + (number($1["quotaWeight"] ?? $1["cost"]) ?? 0) }
                 guard abs(tokenSum - codexTokens) <= 1,
                       abs(costSum - codexCost) <= max(0.001, codexCost * 0.01) else {
                     completeSample = false; break
                 }
                 for (model, values) in models where model.lowercased().contains("spark") == spark {
-                    guard let tokens = number(values["tokens"]), let cost = number(values["cost"]) else { continue }
+                    guard let tokens = number(values["tokens"]), let cost = number(values["quotaWeight"] ?? values["cost"]) else { continue }
                     deviceTokens += tokens * factor; deviceWeight += cost * factor
                     var current = contributions[model] ?? (0, 0)
                     current.tokens += tokens * factor; current.weight += cost * factor

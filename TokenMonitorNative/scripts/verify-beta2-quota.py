@@ -42,6 +42,7 @@ quota_accepted = []
 fail_quota = True
 fail_page_two = True
 cycle_requests = []
+history_requests = []
 cycle_events = [{'id': 'synthetic-cycle-'+str(i)} for i in range(2)]
 lock = threading.Lock()
 
@@ -71,6 +72,14 @@ class Hub(BaseHTTPRequestHandler):
                 self.send({'schemaVersion': 1, 'policyVersion': 1, 'snapshotThrough': stamp(now),
                            'events': [cycle_events[1 if cursor else 0]],
                            'nextCursor': None if cursor else 'synthetic-next-page'})
+        elif self.path.startswith('/api/quota/history?'):
+            query = parse_qs(urlparse(self.path).query)
+            cursor = query.get('cursor', [None])[0]
+            history_requests.append(cursor)
+            self.send({'schemaVersion': 1, 'snapshotThrough': query['to'][0],
+                       'observations': [{'id': 'synthetic-history-' + ('2' if cursor else '1'),
+                                         'receivedAt': stamp(now)}],
+                       'nextCursor': None if cursor else 'synthetic-history-next'})
         elif self.path == '/api/devices':
             with lock: self.send({'devices': [remote]})
         elif self.path == '/api/stats':
@@ -194,6 +203,9 @@ with tempfile.TemporaryDirectory(prefix='token-monitor-native-upload-') as temp:
         process = start()
         until(lambda: json.loads((root / 'quota-outbox.json').read_text())['pending'] == [])
         until(lambda: len(json.loads((root / 'quota-cycles.json').read_text()).get('events',[])) == 2)
+        until(lambda: len(json.loads((root / 'quota-history.json').read_text()).get('observations', [])) == 2)
+        assert 'synthetic-history-next' in history_requests
+        assert (root / 'quota-history.json').stat().st_mode & 0o777 == 0o600
         assert quota_attempts[0]['limits'] == quota_accepted[0]['limits']
         assert remote['periods']['allTime']['totalTokens'] == 1050
         assert 'synthetic-next-page' in cycle_requests
@@ -201,6 +213,7 @@ with tempfile.TemporaryDirectory(prefix='token-monitor-native-upload-') as temp:
         assert (root / 'quota-cycles.json').stat().st_mode & 0o777 == 0o600
         print('PASS: failed quota upload survives crash, exact source timestamp retries, usage totals unchanged')
         print('PASS: cycle pagination checkpoint resumes after crash; completed cache contains both pages')
+        print('PASS: quota observation history is read with GET pagination and saved owner-only')
     finally:
         process.terminate()
         try: process.wait(timeout=5)

@@ -11,7 +11,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 PACKAGE = json.loads((ROOT / 'release.json').read_text())
 
 def verify():
-    if not re.fullmatch(r'\d+\.\d+\.\d+', PACKAGE['version']) or not isinstance(PACKAGE['buildNumber'], int) or PACKAGE['buildNumber'] <= 0:
+    if not re.fullmatch(r'\d+\.\d+\.\d+(?:-beta\.\d+)?', PACKAGE['version']) or not isinstance(PACKAGE['buildNumber'], int) or PACKAGE['buildNumber'] <= 0:
         raise RuntimeError('Unexpected release metadata')
     version = PACKAGE['version']
     for path, expected in [

@@ -6,6 +6,8 @@ public struct NativeUsageEvent: Equatable, Sendable {
     public let input: Int64
     public let cached: Int64
     public let output: Int64
+    public var serviceTier: String? = nil
+    public var requestInput: Int64? = nil
     public var total: Int64 { input + output }
 }
 
@@ -58,6 +60,7 @@ public enum CodexScanner {
         let file = try FileHandle(forReadingFrom: url)
         defer { try? file.close() }
         var model = "unknown"
+        var serviceTier: String?
         var previous: Counters?
         var forked = false
         var childTurnStarted = false
@@ -77,6 +80,7 @@ public enum CodexScanner {
             case "session_meta": forked = payload["forked_from_id"] != nil
             case "turn_context":
                 if let value = payload["model"] as? String, !value.isEmpty { model = value }
+                serviceTier = payload["service_tier"] as? String
                 if forked { childTurnStarted = true }
             case "event_msg":
                 guard payload["type"] as? String == "token_count",
@@ -109,7 +113,8 @@ public enum CodexScanner {
                 }
                 if delta.total > 0 {
                     events.append(NativeUsageEvent(timestamp: timestamp, model: model,
-                                                   input: delta.input, cached: delta.cached, output: delta.output))
+                                                   input: delta.input, cached: delta.cached, output: delta.output,
+                                                   serviceTier: serviceTier, requestInput: last?.input))
                 }
             default: return
             }

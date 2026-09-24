@@ -75,6 +75,19 @@ public final class HubClient: @unchecked Sendable {
         guard data.count <= 64 * 1024 * 1024 else { throw HubError.incompatible(L10n.text("响应过大")) }
         return data
     }
+    public func data(_ endpoint: String, query: [URLQueryItem]) async throws -> Data {
+        try checkActive()
+        var request = connection.request(endpoint)
+        guard let url = request.url, var parts = URLComponents(url: url, resolvingAgainstBaseURL: false) else {
+            throw HubError.invalidURL
+        }
+        parts.queryItems = query
+        request.url = parts.url
+        let (data, response) = try await session.data(for: request)
+        try checkActive(); try validate(response)
+        guard data.count <= 64 * 1024 * 1024 else { throw HubError.incompatible(L10n.text("响应过大")) }
+        return data
+    }
     public func send(_ endpoint: String, body: Data?) async throws -> Data {
         try checkActive()
         var request = connection.request(endpoint)

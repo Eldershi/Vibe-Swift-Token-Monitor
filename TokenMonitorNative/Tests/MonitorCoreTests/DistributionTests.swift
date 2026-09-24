@@ -4,34 +4,32 @@ import AppKit
 @testable import TokenMonitorNative
 
 final class DistributionTests: XCTestCase {
-    func testQuotaAllocationPreservesOfficialRemainingAndUnknownUsage() {
+    func testQuotaAllocationShowsUsedBreakdownAndUnknownUsage() {
         func row(_ id: String, _ quota: Double, tokens: Double = 1) -> ConversionSnapshot.Row {
             .init(id: id, tokens: tokens, weight: 1, share: nil, quota: quota, basis: nil, sampleFrom: nil, sampleTo: nil)
         }
         let partial = QuotaChartData.allocation(remaining: 17, rows: [row("A", 40), row("B", 30)])
-        XCTAssertEqual(partial.total, 100, accuracy: 1e-9)
-        XCTAssertEqual(partial.items.first { $0.id == "quota:remaining" }?.value, 17)
+        XCTAssertEqual(partial.total, 83, accuracy: 1e-9)
         XCTAssertEqual(partial.items.first { $0.id == "quota:used" }?.value, 13)
         let many = QuotaChartData.allocation(remaining: 1, rows: (1...9).map { row(String($0), 11) })
-        XCTAssertEqual(many.total, 100, accuracy: 1e-9)
-        XCTAssertEqual(many.items.count, 10)
+        XCTAssertEqual(many.total, 99, accuracy: 1e-9)
+        XCTAssertEqual(many.items.count, 9)
         XCTAssertEqual(many.items.filter { $0.id.hasPrefix("device:") }.count, 9)
         let legend = QuotaChartData.allocationLegend(many)
-        XCTAssertEqual(legend.count, 4)
+        XCTAssertEqual(legend.count, 3)
         XCTAssertEqual(legend.filter { $0.id.hasPrefix("device:") }.count, 3)
-        XCTAssertEqual(legend.last?.id, "quota:remaining")
         XCTAssertFalse(legend.contains { $0.id.hasPrefix("aggregate:") })
-        XCTAssertEqual(many.items.first { $0.id == "quota:remaining" }?.value, 1)
         let invalid = QuotaChartData.allocation(remaining: 17, rows: [row("A", 95)])
-        XCTAssertEqual(invalid.items.first { $0.id == "quota:used" }?.value, 83)
+        XCTAssertTrue(invalid.items.isEmpty)
         XCTAssertTrue(QuotaChartData.allocation(remaining: nil, rows: [row("A", 83)]).items.isEmpty)
-        let raw = Data(#"[{"deviceId":"A","periods":{"allTime":{"clients":{"codex":100},"totalTokens":900}}},{"deviceId":"B","periods":{"allTime":{"clients":{"codex":300},"totalTokens":500}}},{"deviceId":"unknown","periods":{"allTime":{"totalTokens":999}}}]"#.utf8)
-        let devices = try! JSONDecoder().decode([Device].self, from: raw)
-        let tokens = QuotaChartData.tokens(devices: devices)
+        XCTAssertTrue(QuotaChartData.allocation(remaining: 17, rows: []).items.isEmpty)
+        let tokens = QuotaChartData.tokens(rows: [row("A", 40, tokens: 100), row("B", 30, tokens: 300)], kind: "device")
         XCTAssertEqual(tokens.total, 400)
         XCTAssertEqual(tokens.fraction(tokens.items.first { $0.id == "device:A" }!), 0.25)
-        XCTAssertEqual(QuotaChartPage.overview.advanced(by: -1), .tokens)
-        XCTAssertEqual(QuotaChartPage.tokens.advanced(by: 1), .overview)
+        let models = QuotaChartData.allocation(remaining: 17, rows: [row("gpt-6", 83)], kind: "model")
+        XCTAssertEqual(models.items.first { $0.id == "model:gpt-6" }?.value, 83)
+        XCTAssertEqual(QuotaChartPage.overview.advanced(by: -1), .models)
+        XCTAssertEqual(QuotaChartPage.models.advanced(by: 1), .overview)
     }
     func testThinRingHitTestingKeepsTheLargerCenterEmpty() {
         let ring = Distribution([.init(id: "a", name: "A", value: 1)])
@@ -242,6 +240,47 @@ final class ChartStyleTests: XCTestCase {
 }
 
 final class DonutHoverRegressionTests: XCTestCase {
+    @MainActor func testQuotaRingMovesThroughIntermediateFramesOnCycleChange() throws {
+        let window = NSWindow(contentRect: NSRect(x: 100, y: 100, width: 184, height: 184),
+                              styleMask: [.titled], backing: .buffered, defer: false)
+        let view = DonutNativeView(frame: NSRect(x: 0, y: 0, width: 184, height: 184))
+        window.contentView = view
+        view.appearance = NSAppearance(named: .aqua)
+        defer { window.contentView = nil }
+        func reading(_ percent: Double) -> Distribution {
+            Distribution([.init(id: "quota:remaining", name: "Remaining", value: percent),
+                          .init(id: "quota:used", name: "Used", value: 100 - percent)])
+        }
+        func colors() throws -> (NSColor, NSColor) {
+            let bitmap = try XCTUnwrap(view.bitmapImageRepForCachingDisplay(in: view.bounds))
+            view.cacheDisplay(in: view.bounds, to: bitmap)
+            let scale = CGFloat(bitmap.pixelsWide) / view.bounds.width
+            let early = try XCTUnwrap(bitmap.colorAt(x: Int(66 * scale), y: Int(22 * scale))?.usingColorSpace(.sRGB))
+            let late = try XCTUnwrap(bitmap.colorAt(x: Int(79 * scale), y: Int(166 * scale))?.usingColorSpace(.sRGB))
+            return (early, late)
+        }
+        view.configure(reading(98), cost: false, quota: true, style: ChartStyle(), duration: 0.55)
+        let first = try colors()
+        view.configure(reading(20), cost: false, quota: true, style: ChartStyle(), duration: 0.55)
+        RunLoop.current.run(until: Date().addingTimeInterval(0.18))
+        let middle = try colors()
+        RunLoop.current.run(until: Date().addingTimeInterval(0.48))
+        let last = try colors()
+        XCTAssertGreaterThan(abs(first.0.redComponent - middle.0.redComponent), 0.05)
+        XCTAssertGreaterThan(abs(middle.1.redComponent - last.1.redComponent), 0.05)
+    }
+    @MainActor func testRingMetricToggleAcceptsWholeCircleButNotCardOutsideIt() {
+        let view = DonutNativeView(frame: NSRect(x: 0, y: 0, width: 184, height: 184))
+        view.configure(Distribution([.init(id: "a", name: "A", value: 1)]), cost: false, quota: true, style: ChartStyle())
+        var clicks = 0
+        view.onRingClick = { clicks += 1 }
+        view.activate(at: NSPoint(x: 0, y: 0))
+        XCTAssertEqual(clicks, 0)
+        view.activate(at: NSPoint(x: 92, y: 92))
+        XCTAssertEqual(clicks, 1)
+        view.activate(at: NSPoint(x: 92, y: 10))
+        XCTAssertEqual(clicks, 2)
+    }
     @MainActor func testHoverUsesOriginalShapeAndVisibleAppearanceAwareStroke() throws {
         let window = NSWindow(contentRect: NSRect(x: 100, y: 100, width: 184, height: 184), styleMask: [.titled], backing: .buffered, defer: false)
         let view = DonutNativeView(frame: NSRect(x: 0, y: 0, width: 184, height: 184))
@@ -259,16 +298,26 @@ final class DonutHoverRegressionTests: XCTestCase {
         for appearance in [NSAppearance.Name.aqua, .darkAqua] {
             view.appearance = NSAppearance(named: appearance)
             view.clear()
+            RunLoop.current.run(until: Date().addingTimeInterval(0.22))
             let before = try bitmap()
             view.show(at: NSPoint(x: 172, y: 92))
             XCTAssertTrue(tooltipVisible())
+            RunLoop.current.run(until: Date().addingTimeInterval(0.09))
+            let halfway = try bitmap()
+            RunLoop.current.run(until: Date().addingTimeInterval(0.15))
             let after = try bitmap()
             let scale = CGFloat(before.pixelsWide) / view.bounds.width
             let x = Int(174 * scale), y = Int(92 * scale)
             let base = try XCTUnwrap(before.colorAt(x: x, y: y)?.usingColorSpace(.sRGB))
+            let fadedIn = try XCTUnwrap(halfway.colorAt(x: x, y: y)?.usingColorSpace(.sRGB))
             let border = try XCTUnwrap(after.colorAt(x: x, y: y)?.usingColorSpace(.sRGB))
-            if appearance == .aqua { XCTAssertLessThan(border.redComponent, base.redComponent) }
-            else { XCTAssertGreaterThan(border.redComponent, base.redComponent) }
+            if appearance == .aqua {
+                XCTAssertLessThan(border.redComponent, fadedIn.redComponent)
+                XCTAssertLessThan(fadedIn.redComponent, base.redComponent)
+            } else {
+                XCTAssertGreaterThan(border.redComponent, fadedIn.redComponent)
+                XCTAssertGreaterThan(fadedIn.redComponent, base.redComponent)
+            }
             // Hover cannot enlarge the drawing or hit area.
             let outside = Int(177 * scale)
             XCTAssertEqual(before.colorAt(x: outside, y: y), after.colorAt(x: outside, y: y))
@@ -276,6 +325,9 @@ final class DonutHoverRegressionTests: XCTestCase {
             XCTAssertFalse(tooltipVisible())
             view.show(at: NSPoint(x: 92, y: 92))
             XCTAssertFalse(tooltipVisible())
+            RunLoop.current.run(until: Date().addingTimeInterval(0.22))
+            let faded = try bitmap()
+            XCTAssertEqual(before.colorAt(x: x, y: y), faded.colorAt(x: x, y: y))
         }
     }
 }

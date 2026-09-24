@@ -78,6 +78,7 @@ enum ChartHoverGeometry: Equatable {
 @MainActor final class ChartTooltipView: NSView {
     private let valueLabel = NSTextField(labelWithString: "")
     private let dateLabel = NSTextField(labelWithString: "")
+    private let footnoteLabel = NSTextField(labelWithString: "")
     var accent: NSColor = .controlAccentColor
     override var isFlipped: Bool { true }
     override func hitTest(_ point: NSPoint) -> NSView? { nil }
@@ -86,7 +87,9 @@ enum ChartHoverGeometry: Equatable {
         valueLabel.font = .systemFont(ofSize: 11, weight: .semibold)
         dateLabel.font = .systemFont(ofSize: 11)
         valueLabel.textColor = .labelColor; dateLabel.textColor = .secondaryLabelColor
-        for label in [valueLabel, dateLabel] {
+        footnoteLabel.font = .systemFont(ofSize: 10)
+        footnoteLabel.textColor = .tertiaryLabelColor
+        for label in [valueLabel, dateLabel, footnoteLabel] {
             label.alignment = .center; label.lineBreakMode = .byTruncatingTail
             label.setAccessibilityElement(false); addSubview(label)
         }
@@ -97,26 +100,38 @@ enum ChartHoverGeometry: Equatable {
         configure(value: point.tokens.map { DisplayFormat.tokens($0) + " tokens" } ?? L10n.text("无数据"),
                   detail: point.date.formatted(date: .abbreviated, time: .omitted), accent: accent)
     }
-    func configure(value: String, detail: String, accent: NSColor) -> NSSize {
+    func configure(value: String, detail: String, footnote: String? = nil, accent: NSColor) -> NSSize {
         valueLabel.stringValue = value
         dateLabel.stringValue = detail
+        dateLabel.maximumNumberOfLines = detail.contains("\n") ? 2 : 1
+        dateLabel.usesSingleLineMode = false
+        footnoteLabel.stringValue = footnote ?? ""
+        footnoteLabel.isHidden = footnote == nil
+        footnoteLabel.maximumNumberOfLines = footnote?.contains("\n") == true ? 2 : 1
+        footnoteLabel.usesSingleLineMode = false
         self.accent = accent
         let valueSize = valueLabel.intrinsicContentSize, dateSize = dateLabel.intrinsicContentSize
-        let size = NSSize(width: min(280, ceil(max(valueSize.width, dateSize.width)) + 38), height: valueSize.height + dateSize.height + 27)
+        let footnoteSize = footnote == nil ? .zero : footnoteLabel.intrinsicContentSize
+        let size = NSSize(width: min(280, ceil(max(valueSize.width, dateSize.width, footnoteSize.width)) + 38),
+                          height: valueSize.height + dateSize.height + footnoteSize.height + (footnote == nil ? 27 : 31))
         valueLabel.frame = NSRect(x: 15, y: 12, width: size.width - 30, height: valueSize.height)
         dateLabel.frame = NSRect(x: 15, y: 15 + valueSize.height, width: size.width - 30, height: dateSize.height)
+        footnoteLabel.frame = NSRect(x: 15, y: 18 + valueSize.height + dateSize.height,
+                                    width: size.width - 30, height: footnoteSize.height)
         needsDisplay = true
         return size
     }
     override func viewDidChangeEffectiveAppearance() { super.viewDidChangeEffectiveAppearance(); needsDisplay = true }
     override func draw(_ dirtyRect: NSRect) {
         let shape = NSBezierPath(roundedRect: bounds.insetBy(dx: 4, dy: 4), xRadius: 8, yRadius: 8)
+        let dark = effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
         NSGraphicsContext.saveGraphicsState()
-        let shadow = NSShadow(); shadow.shadowColor = NSColor.black.withAlphaComponent(0.18)
-        shadow.shadowBlurRadius = 3; shadow.shadowOffset = NSSize(width: 0, height: -1); shadow.set()
-        NSColor.windowBackgroundColor.setFill(); shape.fill()
+        let shadow = NSShadow(); shadow.shadowColor = NSColor.black.withAlphaComponent(dark ? 0.5 : 0.18)
+        shadow.shadowBlurRadius = dark ? 10 : 3
+        shadow.shadowOffset = NSSize(width: 0, height: dark ? -3 : -1); shadow.set()
+        (dark ? NSColor(white: 0.30, alpha: 1) : NSColor.windowBackgroundColor).setFill()
+        shape.fill()
         NSGraphicsContext.restoreGraphicsState()
-        accent.withAlphaComponent(0.55).setStroke(); shape.lineWidth = 1; shape.stroke()
     }
 }
 

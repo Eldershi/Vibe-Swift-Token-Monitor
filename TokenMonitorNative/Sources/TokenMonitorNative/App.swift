@@ -102,8 +102,12 @@ import ServiceManagement
             try? AppStore.shared.preview(statsURL: url, historyURL: url.deletingLastPathComponent().appendingPathComponent("history.json"))
         }
         AppStore.shared.start()
+        if Identity.isReadOnlyPreview || args.contains("--preview-live-quota") {
+            PanelController.shared.show()
+            Task { await AppStore.shared.previewLiveQuota() }
+        }
         GitHubUpdater.shared.setAutomaticChecks(AppStore.shared.preferences.automaticallyCheckForUpdates)
-        if AppStore.shared.preferences.showPanelOnLaunch || AppStore.shared.needsSetup { PanelController.shared.show() }
+        if !Identity.isReadOnlyPreview && !args.contains("--preview-live-quota"), AppStore.shared.preferences.showPanelOnLaunch || AppStore.shared.needsSetup { PanelController.shared.show() }
         if args.contains("--preview-fixture"), args.contains("--preview-narrow") {
             PanelController.shared.show()
             PanelController.shared.verificationWindow.setContentSize(NSSize(width: 320, height: 500))
@@ -153,7 +157,7 @@ import ServiceManagement
     func show() {
         if panel == nil {
             let args = ProcessInfo.processInfo.arguments
-            if !args.contains("--verify-period-animation"), !args.contains("--preview-fixture") {
+            if !args.contains("--verify-period-animation"), !args.contains("--preview-fixture"), !Identity.isReadOnlyPreview {
                 presentedPage = Page.restored(UserDefaults.standard.string(forKey: "compactPage") ?? Page.overview.rawValue)
             }
             let p = CompactPanel(contentRect: NSRect(x: 0, y: 0, width: CompactPanel.contentWidth, height: 460), styleMask: [.titled, .closable, .resizable, .miniaturizable, .fullSizeContentView], backing: .buffered, defer: false)
@@ -174,7 +178,7 @@ import ServiceManagement
             host.sizingOptions = []
             p.contentView = host
             p.installSizeConstraints()
-            p.center(); if !ProcessInfo.processInfo.arguments.contains("--verify-period-animation"), !ProcessInfo.processInfo.arguments.contains("--preview-fixture") { p.setFrameAutosaveName("NativeCompactWindow") }
+            p.center(); if !ProcessInfo.processInfo.arguments.contains("--verify-period-animation"), !ProcessInfo.processInfo.arguments.contains("--preview-fixture"), !Identity.isReadOnlyPreview { p.setFrameAutosaveName("NativeCompactWindow") }
             p.installSizeConstraints() // Recheck after restoring an older saved frame.
             panel = p
         }

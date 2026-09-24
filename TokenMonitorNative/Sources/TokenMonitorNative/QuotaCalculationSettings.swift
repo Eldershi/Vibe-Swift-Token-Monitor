@@ -1,5 +1,6 @@
 import SwiftUI
 import MonitorCore
+import NativeBackendCore
 
 struct QuotaCalculationSettings: View {
     var store: AppStore
@@ -8,8 +9,14 @@ struct QuotaCalculationSettings: View {
     var body: some View {
         Section {
             DisclosureGroup(L10n.text("图表统计口径")) {
-                Text(L10n.text("额度概览采用官方读数；设备额度分摊按近期完整日费用估算。设备 Token 总计采用各设备已同步的 Codex 累计日志统计，不按额度换算，也不限定当前重置周期。"))
+                Text(L10n.text("额度概览采用官方读数；设备与模型的已用额度按费用权重近似分摊。Token 饼图使用所选周期内可用的日志统计，历史周期只计完整日，证据不足时显示缺失。"))
                     .font(.caption).foregroundStyle(.secondary)
+                if Identity.isNativeBeta2 {
+                    Text(L10n.text("GPT-6 价格按 2026-09-24 官方价估算；日志未记速度档位时按 Standard。额度分摊优先使用 Codex 额度权重，旧设备仍用已记录费用近似。缺失日志或未知模型不补价。"))
+                        .font(.caption).foregroundStyle(.secondary)
+                    Link(L10n.text("API 价格来源"), destination: URL(string: NativeModelPricing.apiSource)!)
+                    Link(L10n.text("Codex 额度价格来源"), destination: URL(string: NativeModelPricing.creditSource)!)
+                }
             }
             if let s = store.conversionSnapshot {
                 let displayed = s.displayMode == "historical" ? s.lastSuccessful?.result ?? s.result : s.result

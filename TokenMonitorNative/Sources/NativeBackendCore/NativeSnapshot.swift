@@ -49,7 +49,7 @@ public struct NativeSnapshot {
         monthKey.locale = Locale(identifier: "en_US_POSIX"); monthKey.dateFormat = "yyyy-MM"
         var device: [String: Any] = ["deviceId": deviceID, "hostname": hostname,
             "osName": "macOS", "osVersion": ProcessInfo.processInfo.operatingSystemVersionString,
-            "agentVersion": "0.7.0", "updatedAt": updated,
+            "agentVersion": "0.7.1", "updatedAt": updated,
             "agentRuntime": "swift-native", "platform": "darwin", "historyAvailable": true,
             "trackedClients": ["codex"], "clientStatus": ["codex": "healthy"],
             "periods": periodValues,

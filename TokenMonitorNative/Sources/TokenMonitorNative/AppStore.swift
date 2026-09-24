@@ -1,5 +1,6 @@
 import SwiftUI
 import MonitorCore
+import NativeBackendCore
 
 @MainActor @Observable final class AppStore {
     static let shared = AppStore()
@@ -17,6 +18,11 @@ import MonitorCore
     var historyError: String?
     var conversionSnapshot: ConversionSnapshot?
     var rollingHourlyTrend: ConversionSnapshot.HourlyTrend?
+    var hourlyTrendError: String?
+    var trendEmptyMessage: String {
+        if preferences.period == .today, let hourlyTrendError { return hourlyTrendError }
+        return L10n.text("此范围尚无历史数据")
+    }
     var conversionError: String?
     var conversionBusy = false
     var online = false
@@ -63,7 +69,7 @@ import MonitorCore
 
     init(ephemeral override: Bool? = nil, makeClient: @escaping (HubConnection) -> HubClient = { HubClient(connection: $0) }, pause: @escaping (Double) async throws -> Void = { try await Task.sleep(for: .seconds($0)) }) {
         self.makeClient = makeClient; self.pause = pause
-        ephemeral = override ?? (ProcessInfo.processInfo.arguments.contains("--verify-period-animation") || ProcessInfo.processInfo.arguments.contains("--smoke-test") || ProcessInfo.processInfo.arguments.contains("--verify-localization") || ProcessInfo.processInfo.arguments.contains("--preview-fixture") || ProcessInfo.processInfo.arguments.contains(where: { $0.hasPrefix("--beta-") }))
+        ephemeral = override ?? (Identity.isReadOnlyPreview || ProcessInfo.processInfo.arguments.contains("--verify-period-animation") || ProcessInfo.processInfo.arguments.contains("--smoke-test") || ProcessInfo.processInfo.arguments.contains("--verify-localization") || ProcessInfo.processInfo.arguments.contains("--preview-fixture") || ProcessInfo.processInfo.arguments.contains("--preview-live-quota") || ProcessInfo.processInfo.arguments.contains(where: { $0.hasPrefix("--beta-") }))
         preferences.selectionChanged = { [weak self] in self?.preparePresentation() }
         if ephemeral { return }
         do { preferences = RuntimePreferences(try file.load()) }
@@ -476,6 +482,7 @@ import MonitorCore
         }
     }
     func refresh() {
+        if Identity.isReadOnlyPreview { Task { await previewLiveQuota() }; return }
         if Identity.isBeta && !ephemeral { Task { await BetaBackend.shared.command("refresh") }; refreshConversion(force: true); BetaBackend.shared.reconnect(); return }
         if let client { connect(client.connection) }
         else { needsSetup = true }
@@ -525,5 +532,92 @@ import MonitorCore
         accept(try Stats.decode(Data(contentsOf: statsURL)))
         if let historyURL { history = try History.decode(Data(contentsOf: historyURL)) }
         status = L10n.text("界面验证 示例数据"); online = false
+    }
+    func previewLiveQuota() async {
+        guard ephemeral, Identity.isReadOnlyPreview || ProcessInfo.processInfo.arguments.contains("--preview-live-quota") else { return }
+        status = L10n.text("正在读取只读预览…")
+        do {
+            let url = Identity.directory.appendingPathComponent("Backend/hub-config.json")
+            let attributes = try FileManager.default.attributesOfItem(atPath: url.path)
+            guard (attributes[.ownerAccountID] as? NSNumber)?.uint32Value == getuid(),
+                  (attributes[.posixPermissions] as? NSNumber)?.intValue == 0o600,
+                  let config = try JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [String: Any],
+                  config["enabled"] as? Bool == true,
+                  let address = config["address"] as? String, address.hasPrefix("https://"),
+                  let secret = config["secret"] as? String,
+                  let deviceID = config["deviceId"] as? String else { throw HubError.disconnected }
+            let client = try HubClient(connection: HubConnection(address: address, secret: secret))
+            defer { client.cancel() }
+            var statsData = try await client.data("api/stats")
+            let historyData = try await client.data("api/history")
+            var devicesData = try await client.data("api/devices")
+            // Local logs only supply prices when their model totals exactly match
+            // this Hub device at its report timestamp. No statistics are written back.
+            let eventsForPricing: [NativeUsageEvent] = (try? await Task.detached(priority: .utility) {
+                let root = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".codex")
+                return try CodexScanner.scan(root: root.appendingPathComponent("sessions"))
+                    + CodexScanner.scan(root: root.appendingPathComponent("archived_sessions"))
+            }.value) ?? []
+            let priced = try NativeModelPricing.enrich(stats: statsData, devices: devicesData,
+                                                       deviceID: deviceID, events: eventsForPricing)
+            statsData = priced.stats; devicesData = priced.devices
+            let through = ISO8601DateFormatter().string(from: Date())
+            var events: [[String: Any]] = [], cursor: String?
+            repeat {
+                var query = [URLQueryItem(name: "limit", value: "200"), URLQueryItem(name: "to", value: through)]
+                if let cursor { query.append(URLQueryItem(name: "cursor", value: cursor)) }
+                let page = try JSONSerialization.jsonObject(with: await client.data("api/quota/cycles", query: query)) as? [String: Any] ?? [:]
+                guard page["schemaVersion"] as? Int == 1, let rows = page["events"] as? [[String: Any]],
+                      events.count + rows.count <= 20_000 else { throw HubError.disconnected }
+                events += rows; cursor = page["nextCursor"] as? String
+            } while cursor != nil
+            let earliest = events.compactMap { DateCodec.parse($0["inferredStartAt"] as? String) }.min()
+            let from = ISO8601DateFormatter().string(from: max(Date().addingTimeInterval(-366 * 86_400), earliest ?? Date()))
+            var observations: [[String: Any]] = []
+            repeat {
+                var query = [URLQueryItem(name: "limit", value: "200"), URLQueryItem(name: "from", value: from),
+                             URLQueryItem(name: "to", value: through)]
+                if let cursor { query.append(URLQueryItem(name: "cursor", value: cursor)) }
+                let page = try JSONSerialization.jsonObject(with: await client.data("api/quota/history", query: query)) as? [String: Any] ?? [:]
+                guard page["schemaVersion"] as? Int == 1, let rows = page["observations"] as? [[String: Any]],
+                      observations.count + rows.count <= 50_000 else { throw HubError.disconnected }
+                observations += rows; cursor = page["nextCursor"] as? String
+            } while cursor != nil
+            let conversionData = try NativeQuotaConversion.make(stats: statsData, devices: devicesData,
+                deviceID: deviceID, hourly: nil, cycleEvents: events, cycleCapability: true,
+                observations: observations)
+            stats = try Stats.decode(statsData)
+            history = try History.decode(historyData)
+            conversionSnapshot = try JSONDecoder().decode(ConversionSnapshot.self, from: conversionData)
+            now = Date(); receivedAt = now; online = false; needsSetup = false
+            status = L10n.text("只读预览")
+            preparePresentation()
+            await refreshPreviewHourlyTrend()
+        } catch {
+            online = false; conversionError = L10n.text("只读预览无法连接 Hub")
+            status = conversionError ?? L10n.text("只读预览无法连接 Hub")
+        }
+    }
+
+    /// The Hub retains daily history; rolling hours come from the existing local
+    /// collector. A GET reads its in-memory snapshot without refreshing or starting it.
+    func refreshPreviewHourlyTrend(endpointURL: URL? = nil) async {
+        guard ephemeral else { return }
+        do {
+            let endpoint = try BetaEndpoint.load(from: endpointURL
+                ?? Identity.directory.appendingPathComponent("Backend/endpoint.json"))
+            let local = makeClient(try endpoint.connection())
+            defer { local.cancel() }
+            let data = try await local.data("local/api/beta/conversion")
+            let snapshot = try JSONDecoder().decode(ConversionSnapshot.self, from: data)
+            guard let hourly = snapshot.trend?.hourly, hourly.isRolling24 else {
+                throw HubError.disconnected
+            }
+            rollingHourlyTrend = hourly
+            hourlyTrendError = nil
+        } catch {
+            rollingHourlyTrend = nil
+            hourlyTrendError = L10n.text("小时趋势读取失败，请确认本机后台正在运行后刷新")
+        }
     }
 }

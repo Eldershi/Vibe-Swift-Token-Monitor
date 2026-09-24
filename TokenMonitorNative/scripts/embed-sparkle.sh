@@ -6,6 +6,7 @@ FRAMEWORK="$ARTIFACT/Sparkle.xcframework/macos-arm64_x86_64/Sparkle.framework"
 test -d "$FRAMEWORK"
 mkdir -p "$APP/Contents/Frameworks"
 ditto "$FRAMEWORK" "$APP/Contents/Frameworks/Sparkle.framework"
+xattr -cr "$APP/Contents/Frameworks/Sparkle.framework"
 # Preserve Sparkle's symlinks and sign nested code from the inside out.
 python3 - "$APP/Contents/Frameworks/Sparkle.framework" "${SIGNING_IDENTITY:--}" <<'PY'
 import pathlib, subprocess, sys

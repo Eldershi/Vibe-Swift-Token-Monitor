@@ -5,6 +5,10 @@ enum DataMotion {
     private static let control1X = 0.45
     private static let control2X = 0.55
     static let animation = Animation.timingCurve(control1X, 0, control2X, 1, duration: duration)
+    static let cycleDuration = 0.55
+    static let cycleAnimation = Animation.timingCurve(control1X, 0, control2X, 1, duration: cycleDuration)
+    static let summaryDuration = 0.44
+    static let summaryAnimation = Animation.timingCurve(control1X, 0, control2X, 1, duration: summaryDuration)
 
     /// Evaluate the same cubic Bézier used by SwiftUI so native timer-driven
     /// charts and SwiftUI views keep the same timing rather than only the same duration.

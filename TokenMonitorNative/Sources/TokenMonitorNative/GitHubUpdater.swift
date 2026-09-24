@@ -22,7 +22,7 @@ import ServiceManagement
     @ObservationIgnored private var serviceWasEnabled = false
     @ObservationIgnored private var automaticRequest = false
     static var isIsolatedRun: Bool {
-        ProcessInfo.processInfo.arguments.contains { $0.hasPrefix("--preview") || $0.hasPrefix("--verify") || $0.hasPrefix("--benchmark") || $0.hasPrefix("--beta-") || $0 == "--smoke-test" }
+        Identity.isReadOnlyPreview || ProcessInfo.processInfo.arguments.contains { $0.hasPrefix("--preview") || $0.hasPrefix("--verify") || $0.hasPrefix("--benchmark") || $0.hasPrefix("--beta-") || $0 == "--smoke-test" }
     }
     static func verifyConfiguration() throws {
         let value = SPUStandardUpdaterController(startingUpdater: false, updaterDelegate: nil, userDriverDelegate: nil)

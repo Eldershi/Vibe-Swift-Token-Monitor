@@ -28,8 +28,8 @@ month_key = now.astimezone().strftime('%Y-%m')
 stamp = lambda value: value.isoformat(timespec='milliseconds').replace('+00:00', 'Z')
 device_id = 'synthetic-native-handoff'
 period = {'totalTokens': 1000, 'cacheReadTokens': 0, 'outputTokens': 0,
-          'clients': {'codex': 1000}, 'models': {'synthetic': 1000},
-          'clientModels': {'codex': {'synthetic': 1000}}}
+          'clients': {'codex': 1000}, 'models': {'gpt-6-sol': 1000},
+          'clientModels': {'codex': {'gpt-6-sol': 1000}}}
 remote = {'deviceId': device_id, 'hostname': socket.gethostname(), 'osName': 'macOS',
           'agentRuntime': 'native-beta', 'updatedAt': stamp(cutoff),
           'periodWindows': {'today': {'key': date_key}, 'month': {'key': month_key}},
@@ -40,8 +40,8 @@ if args.mixed_agents:
     for row in remote['periods'].values():
         # Deep copies keep the three period fixtures independent.
         row.update(totalTokens=1400, clients={'codex': 1000, 'claude': 400},
-                   models={'synthetic': 1000, 'other-model': 400},
-                   clientModels={'codex': {'synthetic': 1000}, 'claude': {'other-model': 400}})
+                   models={'gpt-6-sol': 1000, 'other-model': 400},
+                   clientModels={'codex': {'gpt-6-sol': 1000}, 'claude': {'other-model': 400}})
     for rows in remote['history'].values():
         for row in rows:
             row['tokens'] = 1400
@@ -106,6 +106,8 @@ class Hub(BaseHTTPRequestHandler):
         assert self.headers.get('Authorization') == 'Bearer synthetic-secret'
         value = json.loads(self.rfile.read(int(self.headers['Content-Length'])))
         assert value['deviceId'] == device_id and 'limits' not in value
+        assert all('clientModelCosts' not in row and 'modelCosts' not in row
+                   for row in value['periods'].values()), 'Display pricing leaked into upload ledger'
         with lock:
             uploads.append(value)
             if args.usage_module:
@@ -161,7 +163,7 @@ with tempfile.TemporaryDirectory(prefix='token-monitor-native-upload-') as temp:
     sessions.mkdir(parents=True)
     log = sessions / 'synthetic.jsonl'
     log.write_text(json.dumps({'type': 'turn_context', 'timestamp': stamp(now - timedelta(minutes=1)),
-                               'payload': {'model': 'synthetic'}}) + '\n' +
+                               'payload': {'model': 'gpt-6-sol'}}) + '\n' +
                    token_line(now - timedelta(minutes=1), 50, 50))
     server = ThreadingHTTPServer(('127.0.0.1', 0), Hub)
     threading.Thread(target=server.serve_forever, daemon=True).start()
@@ -185,6 +187,10 @@ with tempfile.TemporaryDirectory(prefix='token-monitor-native-upload-') as temp:
         until(lambda: json.loads((root / 'hub-handoff.json').read_text())['pendingUpload'] is False)
         assert_preserved(1050)
         print('PASS: existing device received only post-cutoff tokens')
+        local_stats = local_request(root, '/local/api/stats')
+        local_cost = local_stats['periods']['allTime']['clientModelCosts']['codex']['gpt-6-sol']
+        assert abs(local_cost - 50 * 2 / 1_000_000) < 1e-12, local_cost
+        print('PASS: local display pricing available without changing uploaded costs')
         local_request(root, '/api/beta/refresh', {})
         time.sleep(.5)
         assert remote['periods']['allTime']['totalTokens'] == 1050 + extra

@@ -235,7 +235,7 @@ struct ActivityDetailView: View {
             ActivityView(store: store, showHeading: false)
             Text(L10n.text("趋势")).font(.subheadline.weight(.semibold))
             UsageChart(points: store.trendPoints(), granularity: store.trendGranularity, tint: store.preferences.accentColor,
-                       animationMemory: store.detailTrendAnimation)
+                       animationMemory: store.detailTrendAnimation, emptyMessage: store.trendEmptyMessage)
                 .id("activity-detail-trend-chart")
             HistoryNotice(store: store)
             ActivityRecordsView(store: store)

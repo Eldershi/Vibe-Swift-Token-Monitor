@@ -7,12 +7,16 @@ struct DistributionChart: View {
     var cost = false
     var quota = false
     var center: String? = nil
+    var centerMetric: Double? = nil
+    var centerLabel: String? = nil
     var tint: Color? = nil
     var style = ChartStyle()
     var strokeWidth: CGFloat? = nil
     var legendItems: [DistributionItem]? = nil
     var fixedLegendHeight: CGFloat? = nil
     var compactValues = false
+    var cycleMotion = false
+    var onRingClick: (() -> Void)? = nil
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     private func value(_ amount: Double) -> String {
         quota ? amount.formatted(.number.precision(.fractionLength(0...1))) + "%" : cost ? DisplayFormat.cost(amount) : (compactValues ? DisplayFormat.compact(amount) : DisplayFormat.tokens(amount) + " tokens")
@@ -24,16 +28,28 @@ struct DistributionChart: View {
         }
         VStack(spacing: 12) {
             ZStack {
-                DonutCanvas(distribution: distribution, cost: cost, quota: quota, style: style, strokeWidth: strokeWidth)
+                DonutCanvas(distribution: distribution, cost: cost, quota: quota, style: style,
+                            strokeWidth: strokeWidth, duration: cycleMotion ? DataMotion.cycleDuration : DataMotion.duration,
+                            onRingClick: onRingClick)
                     .accessibilityElement(children: .ignore)
                     .accessibilityLabel(quota ? L10n.text("额度") : cost ? L10n.text("API 等价估算") : L10n.text("Token 用量"))
                     .accessibilityChartDescriptor(DistributionAccessibility(distribution: distribution, cost: cost, quota: quota))
                 VStack(spacing: 4) {
                     Text(center ?? (distribution.items.isEmpty ? "—" : value(distribution.total))).font(.headline).monospacedDigit().lineLimit(2).minimumScaleFactor(0.7)
-                        .contentTransition(.numericText(value: distribution.total))
-                        .animation(reduceMotion ? nil : DataMotion.animation, value: distribution.total)
+                        .contentTransition(.numericText(value: centerMetric ?? distribution.total))
+                        .animation(reduceMotion ? nil : (cycleMotion ? DataMotion.cycleAnimation : DataMotion.animation), value: centerMetric ?? distribution.total)
                         .clipped()
-                    if quota || cost { Text(quota ? style.displayName(id: "quota:remaining", fallback: L10n.text("剩余额度")) : L10n.text("API 等价估算")).font(.caption).foregroundStyle(.secondary) }
+                    if quota || cost || centerLabel != nil {
+                        let caption = centerLabel ?? (quota ? style.displayName(id: "quota:remaining", fallback: L10n.text("剩余额度")) : L10n.text("API 等价估算"))
+                        ZStack {
+                            Text(caption).font(.caption).foregroundStyle(.secondary)
+                                .id(caption)
+                                .transition(.move(edge: quota ? .top : .bottom).combined(with: .opacity))
+                        }
+                        .frame(height: 18)
+                        .clipped()
+                        .animation(reduceMotion ? nil : DataMotion.animation, value: caption)
+                    }
                 }.multilineTextAlignment(.center).frame(width: 108, alignment: .center).allowsHitTesting(false).accessibilityHidden(true)
             }.frame(width: 184, height: 184)
             VStack(spacing: 8) {
@@ -169,9 +185,12 @@ struct DonutCanvas: NSViewRepresentable {
     let quota: Bool
     let style: ChartStyle
     var strokeWidth: CGFloat? = nil
+    var duration = DataMotion.duration
+    var onRingClick: (() -> Void)? = nil
     func makeNSView(context: Context) -> DonutNativeView { DonutNativeView() }
     func updateNSView(_ view: DonutNativeView, context: Context) {
-        view.configure(distribution, cost: cost, quota: quota, style: style, strokeWidth: strokeWidth)
+        view.configure(distribution, cost: cost, quota: quota, style: style, strokeWidth: strokeWidth, duration: duration)
+        view.onRingClick = onRingClick
     }
 }
 
@@ -189,8 +208,12 @@ final class DonutNativeView: NSView {
     private var monitor: Any?
     private var observers: [NSObjectProtocol] = []
     private var selected: Int?
+    private var strokeOpacities: [String: Double] = [:]
+    private var strokeAnimation: Timer?
     private var tooltip: ChartTooltipView?
     private var dataAnimation: Timer?
+    var onRingClick: (() -> Void)?
+    private var transitionDuration = DataMotion.duration
     override var isFlipped: Bool { true }
     override func hitTest(_ point: NSPoint) -> NSView? { nil }
     override init(frame: NSRect) {
@@ -205,9 +228,12 @@ final class DonutNativeView: NSView {
     deinit {
         if let monitor { NSEvent.removeMonitor(monitor) }
         dataAnimation?.invalidate()
+        strokeAnimation?.invalidate()
         for observer in observers { NotificationCenter.default.removeObserver(observer) }
     }
-    func configure(_ value: Distribution, cost: Bool, quota: Bool, style: ChartStyle, strokeWidth: CGFloat? = nil) {
+    func configure(_ value: Distribution, cost: Bool, quota: Bool, style: ChartStyle,
+                   strokeWidth: CGFloat? = nil, duration: TimeInterval = DataMotion.duration) {
+        transitionDuration = duration
         guard distribution != value || self.cost != cost || self.quota != quota || self.style != style || self.strokeWidth != strokeWidth else { return }
         let dataChanged = distribution != value
         distribution = value; self.cost = cost; self.quota = quota; self.style = style; self.strokeWidth = strokeWidth
@@ -226,6 +252,9 @@ final class DonutNativeView: NSView {
         monitor = NSEvent.addLocalMonitorForEvents(matching: [.mouseMoved, .leftMouseDown, .rightMouseDown, .scrollWheel, .leftMouseDragged, .mouseExited]) { [weak self] event in
             guard let self else { return event }
             if event.window === self.window && event.type == .mouseMoved { self.show(at: self.convert(event.locationInWindow, from: nil)) }
+            else if event.window === self.window && event.type == .leftMouseDown {
+                self.activate(at: self.convert(event.locationInWindow, from: nil))
+            }
             else { self.clear() }
             return event
         }
@@ -249,7 +278,7 @@ final class DonutNativeView: NSView {
         dataAnimation = Timer.scheduledTimer(withTimeInterval: 1.0 / 60, repeats: true) { [weak self] timer in
             MainActor.assumeIsolated {
                 guard let self else { timer.invalidate(); return }
-                let raw = min(1, Date().timeIntervalSince(started) / DataMotion.duration)
+                let raw = min(1, Date().timeIntervalSince(started) / self.transitionDuration)
                 let eased = DataMotion.progress(raw)
                 self.renderFractions = DonutTransition.interpolate(state, progress: eased)
                 self.paths = []; self.needsDisplay = true
@@ -265,9 +294,50 @@ final class DonutNativeView: NSView {
     }
     private func setSelection(_ index: Int?) {
         guard selected != index else { return }
-        selected = index; needsDisplay = true
+        selected = index
+        strokeAnimation?.invalidate(); strokeAnimation = nil
+        let targetID = index.flatMap { renderItems.indices.contains($0) ? renderItems[$0].id : nil }
+        if NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
+            strokeOpacities = targetID.map { [$0: 1] } ?? [:]
+            needsDisplay = true
+            return
+        }
+        let start = strokeOpacities
+        let ids = Set(start.keys).union(targetID.map { [$0] } ?? [])
+        let started = Date()
+        strokeAnimation = Timer.scheduledTimer(withTimeInterval: 1.0 / 60, repeats: true) { [weak self] timer in
+            MainActor.assumeIsolated {
+                guard let self else { timer.invalidate(); return }
+                let raw = min(1, Date().timeIntervalSince(started) / 0.18)
+                let eased = DataMotion.progress(raw)
+                self.strokeOpacities = Dictionary(uniqueKeysWithValues: ids.compactMap { id -> (String, Double)? in
+                    let from = start[id] ?? 0
+                    let to = id == targetID ? 1.0 : 0.0
+                    let value = from + (to - from) * eased
+                    return value > 0.001 ? (id, value) : nil
+                })
+                self.needsDisplay = true
+                if raw == 1 {
+                    timer.invalidate(); self.strokeAnimation = nil
+                    self.strokeOpacities = targetID.map { [$0: 1] } ?? [:]
+                }
+            }
+        }
     }
     func clear() { setSelection(nil); tooltip?.removeFromSuperview(); needsDisplay = true }
+    func activate(at point: NSPoint) {
+        guard let onRingClick, !isHiddenOrHasHiddenAncestor, bounds.contains(point),
+              !ChartInteractionShield.blocks(point, from: self) else { clear(); return }
+        var ancestor = superview
+        while let view = ancestor {
+            if view is NSClipView && !view.bounds.contains(view.convert(point, from: self)) { clear(); return }
+            ancestor = view.superview
+        }
+        let radius = min(bounds.width, bounds.height) / 2 - 9
+        guard hypot(point.x - bounds.midX, point.y - bounds.midY) <= radius else { clear(); return }
+        clear()
+        onRingClick()
+    }
     func show(at point: NSPoint) {
         guard !isHiddenOrHasHiddenAncestor, bounds.contains(point), let window,
               dataAnimation == nil, !ChartInteractionShield.blocks(point, from: self) else { clear(); return }
@@ -302,14 +372,10 @@ final class DonutNativeView: NSView {
             let shape = NSBezierPath(cgPath: paths[index])
             let fill = NSColor(style.color(id: renderItems[index].id, activeIDs: renderItems.map(\.id)))
             fill.setFill(); shape.fill()
-            if NSWorkspace.shared.accessibilityDisplayShouldIncreaseContrast {
+            if let opacity = strokeOpacities[renderItems[index].id], opacity > 0 {
                 NSGraphicsContext.saveGraphicsState(); shape.addClip()
-                NSColor.labelColor.setStroke()
-                shape.lineWidth = 2; shape.stroke(); NSGraphicsContext.restoreGraphicsState()
-            }
-            if selected == index {
-                NSGraphicsContext.saveGraphicsState(); shape.addClip()
-                HeatmapHoverView.barStrokeColor(accent: fill, appearance: effectiveAppearance).setStroke()
+                HeatmapHoverView.barStrokeColor(accent: fill, appearance: effectiveAppearance)
+                    .withAlphaComponent(CGFloat(opacity)).setStroke()
                 // Clip the centered stroke to the original sector: no expanded silhouette.
                 shape.lineWidth = NSWorkspace.shared.accessibilityDisplayShouldIncreaseContrast ? 3 : 2
                 shape.stroke(); NSGraphicsContext.restoreGraphicsState()

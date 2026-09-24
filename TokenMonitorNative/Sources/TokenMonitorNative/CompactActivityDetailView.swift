@@ -43,7 +43,7 @@ struct CompactActivityDetailView: View {
             module(.heatmap, height: 104) { ActivityView(store: store, showHeading: false, showBorder: false) }
             module(.trends, height: 180) {
                 UsageChart(points: store.trendPoints(), granularity: store.trendGranularity,
-                           tint: store.preferences.accentColor, animationMemory: store.detailTrendAnimation)
+                           tint: store.preferences.accentColor, animationMemory: store.detailTrendAnimation, emptyMessage: store.trendEmptyMessage)
                     .id("activity-detail-trend-chart")
             }
             HistoryNotice(store: store).frame(height: 24, alignment: .topLeading)

@@ -39,8 +39,6 @@ struct SummaryView: View {
                 .clipped()
                 .accessibilityLabel(L10n.text("总用量 %@ tokens", String(describing: DisplayFormat.tokens(store.selectedTokens))))
             Text("tokens").foregroundStyle(.secondary)
-            Text(L10n.text("%@ API 等价估算", String(describing: DisplayFormat.cost(store.selectedCost)))).font(.subheadline)
-                .help(L10n.text("由 Hub 提供的 API 等价费用，不代表订阅账单。"))
             if store.stats != nil && store.selectedTokens == nil {
                 Text(L10n.text("Hub 尚未报告此工具的数据")).font(.caption).foregroundStyle(.secondary)
             } else if store.selectedTokens == 0 {
@@ -48,7 +46,7 @@ struct SummaryView: View {
             }
         }.textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading)
             .accessibilityElement(children: .ignore)
-            .accessibilityLabel(L10n.text("%@，%@，总用量 %@ tokens，API 等价估算 %@。%@", "Codex", String(describing: store.preferences.period.title), String(describing: DisplayFormat.tokens(store.selectedTokens)), String(describing: DisplayFormat.cost(store.selectedCost)), String(describing: store.selectedTokens == nil ? L10n.text("Hub 尚未报告此工具的数据") : "")))
+            .accessibilityLabel("Codex, " + store.preferences.period.title + ", " + L10n.text("总用量 %@ tokens", DisplayFormat.tokens(store.selectedTokens)))
     }
 }
 struct SetupPrompt: View {
@@ -143,8 +141,9 @@ struct CompactView: View {
     @AppStorage("compactPage") private var persistedPage = Page.overview.rawValue
     @State private var activityDetail: ActivityDetail?
     @State private var quotaDetail: QuotaDetail?
-    @State private var diagnosticPage = Page.overview.rawValue
-    private var isPeriodDiagnostic: Bool { ProcessInfo.processInfo.arguments.contains("--verify-period-animation") || ProcessInfo.processInfo.arguments.contains("--preview-fixture") }
+    @State private var selectedQuotaCycleID: String?
+    @State private var diagnosticPage = (Identity.isReadOnlyPreview || ProcessInfo.processInfo.arguments.contains("--preview-live-quota")) ? Page.quota.rawValue : Page.overview.rawValue
+    private var isPeriodDiagnostic: Bool { Identity.isReadOnlyPreview || ProcessInfo.processInfo.arguments.contains("--verify-period-animation") || ProcessInfo.processInfo.arguments.contains("--preview-fixture") || ProcessInfo.processInfo.arguments.contains("--preview-live-quota") }
     private var selectedPage: String {
         get { isPeriodDiagnostic ? diagnosticPage : persistedPage }
         nonmutating set { if isPeriodDiagnostic { diagnosticPage = newValue } else { persistedPage = newValue } }
@@ -179,7 +178,8 @@ struct CompactView: View {
                                 let fractions = store.deviceUsageFractions
                                 ForEach(store.devices) { DeviceRow(device: $0, usageFraction: fractions[$0.id], store: store) }
                             case .models: ModelsView(store: store)
-                            case .quota: QuotaConversionView(store: store, detail: quotaDetail) { quotaDetail = $0 }
+                            case .quota: QuotaConversionView(store: store, detail: quotaDetail,
+                                                            selectedCycleID: $selectedQuotaCycleID) { quotaDetail = $0 }
                             case .activity: CompactActivityDetailView(store: store) { activityDetail = $0 }
                             }
                         }
@@ -216,7 +216,7 @@ struct CompactView: View {
         }.background(Color(nsColor: .windowBackgroundColor))
             .tint(store.preferences.accentColor).accentColor(store.preferences.accentColor)
             .frame(width: CompactPanel.contentWidth)
-            .onChange(of: selectedPage) { activityDetail = nil; quotaDetail = nil; PanelController.shared.updatePage(Page.restored(selectedPage)) }
+            .onChange(of: selectedPage) { activityDetail = nil; quotaDetail = nil; selectedQuotaCycleID = nil; PanelController.shared.updatePage(Page.restored(selectedPage)) }
             .task { selectedPage = Page.restored(selectedPage).rawValue; PanelController.shared.updatePage(Page.restored(selectedPage)); store.loadHistory() }
     }
 }
@@ -280,7 +280,7 @@ struct OverviewView: View {
         case .trends:
             HistoryNotice(store: store)
             UsageChart(points: store.trendPoints(), granularity: store.trendGranularity, tint: store.preferences.accentColor,
-                              animationMemory: store.overviewTrendAnimation)
+                              animationMemory: store.overviewTrendAnimation, emptyMessage: store.trendEmptyMessage)
         }
     }
 }
@@ -299,12 +299,12 @@ struct QuotaView: View {
             ForEach(Array(providers.enumerated()), id: \.offset) { index, provider in
                 let stale = provider.isStale(now: store.statusClock, threshold: max(store.stats?.staleAfterMs ?? 600_000, (store.stats?.limits?.refreshMs ?? 300_000) * 2))
                 VStack(alignment: .leading, spacing: 10) {
-                    HStack {
+                    if !home { HStack {
                         Text(provider.provider == "codex" ? "Codex" : provider.provider).fontWeight(.medium)
                         if providers.filter({ $0.provider == provider.provider }).count > 1 { Text(store.reportTitle(provider, in: providers)).foregroundStyle(.secondary) }
                         Spacer()
                         if stale || provider.status != "ok" { Text(stale ? L10n.text("数据已过期") : provider.statusTitle).foregroundStyle(.secondary) }
-                    }.font(.caption)
+                    }.font(.caption) }
                     ForEach(Array(provider.windows.filter(\.hasReportedQuota).enumerated()), id: \.offset) { _, window in
                         VStack(alignment: .leading, spacing: 5) {
                             HStack(alignment: .firstTextBaseline) {
@@ -334,10 +334,15 @@ struct ModelUsageRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(name).fontWeight(.medium).lineLimit(1).help(name)
-            HStack { Text("\(DisplayFormat.tokens(row.tokens)) tokens"); Spacer(); Text(DisplayFormat.cost(row.cost)) }
+            HStack {
+                Text("\(DisplayFormat.tokens(row.tokens)) tokens")
+                Spacer()
+                if let cost = row.cost { Text(DisplayFormat.cost(cost)) }
+            }
                 .font(.caption).foregroundStyle(.secondary).monospacedDigit()
         }.textSelection(.enabled).accessibilityElement(children: .ignore)
-            .accessibilityLabel(L10n.text("%@，%@ tokens，API 等价估算 %@", name, String(describing: DisplayFormat.tokens(row.tokens)), String(describing: DisplayFormat.cost(row.cost))))
+            .accessibilityLabel(row.cost.map { L10n.text("%@，%@ tokens，API 等价估算 %@", name, DisplayFormat.tokens(row.tokens), DisplayFormat.cost($0)) }
+                ?? name + ", " + DisplayFormat.tokens(row.tokens) + " tokens")
     }
 }
 struct ModelSortPicker: View {
@@ -428,11 +433,12 @@ struct UsageChart: View {
     let granularity: TrendGranularity
     var tint: Color? = nil
     var animationMemory = BarAnimationMemory()
+    var emptyMessage = L10n.text("此范围尚无历史数据")
     var body: some View {
         if points.contains(where: { $0.tokens != nil }) {
             FixedBarChart(points: points, granularity: granularity, tint: tint, animationMemory: animationMemory)
                 .padding(10).frame(height: 180).modifier(HistoryBorder())
-        } else { Text(L10n.text("此范围尚无历史数据")).font(.caption).foregroundStyle(.secondary) }
+        } else { Text(emptyMessage).font(.caption).foregroundStyle(.secondary) }
     }
 }
 struct BarAnimationVector: VectorArithmetic {

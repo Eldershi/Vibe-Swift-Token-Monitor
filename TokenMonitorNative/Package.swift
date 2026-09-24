@@ -12,7 +12,7 @@ let package = Package(
         .testTarget(name: "NativeBackendCoreTests", dependencies: ["NativeBackendCore", "MonitorCore", "TokenMonitorNative"]),
         .target(name: "MonitorCore", resources: [.process("Resources")]),
         .executableTarget(name: "TokenMonitorBackend", dependencies: ["NativeBackendCore"]),
-        .executableTarget(name: "TokenMonitorNative", dependencies: ["MonitorCore", .product(name: "Sparkle", package: "Sparkle")], resources: [.process("Resources")], linkerSettings: [.unsafeFlags(["-Xlinker", "-rpath", "-Xlinker", "@executable_path/../Frameworks"])]),
+        .executableTarget(name: "TokenMonitorNative", dependencies: ["MonitorCore", "NativeBackendCore", .product(name: "Sparkle", package: "Sparkle")], resources: [.process("Resources")], linkerSettings: [.unsafeFlags(["-Xlinker", "-rpath", "-Xlinker", "@executable_path/../Frameworks"])]),
         .testTarget(name: "MonitorCoreTests", dependencies: ["MonitorCore", "TokenMonitorNative"], resources: [.copy("Fixtures")])
     ],
     swiftLanguageModes: [.v5]

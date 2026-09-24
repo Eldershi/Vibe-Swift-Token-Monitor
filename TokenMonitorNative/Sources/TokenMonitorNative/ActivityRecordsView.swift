@@ -23,7 +23,7 @@ struct ActivityRecordsView: View {
             Text(L10n.text("用量明细")).font(.subheadline.weight(.semibold))
             if store.preferences.period == .allTime {
                 if years.isEmpty {
-                    Text(L10n.text("此范围尚无历史数据")).font(.caption).foregroundStyle(.secondary)
+                    Text(store.trendEmptyMessage).font(.caption).foregroundStyle(.secondary)
                 }
                 ForEach(years) { year in
                     DisclosureGroup(isExpanded: expansion(.year(year.id), scope: scope, years: years)) {
@@ -54,7 +54,7 @@ struct ActivityRecordsView: View {
                     }
                 }
             } else if store.trendPoints().isEmpty {
-                Text(L10n.text("此范围尚无历史数据")).font(.caption).foregroundStyle(.secondary)
+                Text(store.trendEmptyMessage).font(.caption).foregroundStyle(.secondary)
             } else {
                 rangedRows
             }

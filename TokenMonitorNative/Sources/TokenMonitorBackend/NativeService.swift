@@ -51,12 +51,14 @@ final class NativeService: @unchecked Sendable {
     private let secret: String
     private var config: HubConfig?
     private var paused = false
-    private var stats = Data()
+    private var stats = Data() { didSet { localPricingCache = nil } }
     private var history = Data()
     private var localConversion = Data()
-    private var remoteStats: Data?
+    private var remoteStats: Data? { didSet { remotePricingCache = nil } }
     private var remoteHistory: Data?
-    private var remoteDevices: Data?
+    private var remoteDevices: Data? { didSet { remotePricingCache = nil } }
+    private var localPricingCache: Data?
+    private var remotePricingCache: (stats: Data, devices: Data)?
     private var conversionChoiceID: String?
     private var quotaCollecting = false
     private var quotaUploading = false
@@ -64,7 +66,9 @@ final class NativeService: @unchecked Sendable {
     private var quotaError: String?
     private var quotaState: [String: Any] = [:]
     private var cycleState: [String: Any] = [:]
+    private var quotaHistoryState: [String: Any] = [:]
     private var cycleFetching = false
+    private var quotaHistoryFetching = false
     private var cycleNextCheck = Date.distantPast
     private var cycleCapability = false
     private var fetchingRemote = false
@@ -77,7 +81,9 @@ final class NativeService: @unchecked Sendable {
     private var handoff: HubHandoff?
     private var establishingHandoff = false
     private var uploading = false
-    private var latestEvents: [NativeUsageEvent] = []
+    private var latestEvents: [NativeUsageEvent] = [] {
+        didSet { localPricingCache = nil; remotePricingCache = nil }
+    }
     private var scanning = false
     private var timer: DispatchSourceTimer?
     private let scanCache = CodexScanCache()
@@ -104,6 +110,7 @@ final class NativeService: @unchecked Sendable {
         conversionChoiceID = (try Self.readJSON(directory.appendingPathComponent("conversion-config.json")))?["choiceId"] as? String
         quotaState = try Self.readJSON(directory.appendingPathComponent("quota-outbox.json")) ?? [:]
         cycleState = try Self.readJSON(directory.appendingPathComponent("quota-cycles.json")) ?? [:]
+        quotaHistoryState = try Self.readJSON(directory.appendingPathComponent("quota-history.json")) ?? [:]
         let handoffFile = directory.appendingPathComponent("hub-handoff.json")
         if FileManager.default.fileExists(atPath: handoffFile.path) {
             handoff = try HubHandoff(saved: Data(contentsOf: handoffFile))
@@ -364,7 +371,7 @@ final class NativeService: @unchecked Sendable {
             request.setValue(identity.accountID, forHTTPHeaderField: "ChatGPT-Account-Id")
             request.setValue("application/json", forHTTPHeaderField: "Accept")
             request.setValue("no-cache", forHTTPHeaderField: "Cache-Control")
-            request.setValue("TokenMonitor/0.7.0", forHTTPHeaderField: "User-Agent")
+            request.setValue("TokenMonitor/0.7.1", forHTTPHeaderField: "User-Agent")
             if identity.fedramp { request.setValue("true", forHTTPHeaderField: "X-OpenAI-Fedramp") }
             let requestedAt = Date()
             quotaCollecting = true
@@ -490,8 +497,75 @@ final class NativeService: @unchecked Sendable {
                 do {
                     try Self.writeJSON(next, to: self.directory.appendingPathComponent("quota-cycles.json"))
                     self.cycleState = next
-                    if next["cursor"] != nil { self.fetchCyclePage(hub) } else { self.cycleFetching = false }
+                    if next["cursor"] != nil { self.fetchCyclePage(hub) }
+                    else { self.cycleFetching = false; self.fetchQuotaHistory(hub) }
                 } catch { self.cycleFetching = false }
+            }
+        }.resume()
+    }
+
+    private func fetchQuotaHistory(_ hub: HubConfig) {
+        guard !quotaHistoryFetching, let base = Self.remoteURL(hub, path: "api/quota/history") else { return }
+        quotaHistoryFetching = true
+        let scope = self.scope(hub)
+        let old = quotaHistoryState["scope"] as? String == scope ? quotaHistoryState : [:]
+        let previous = Self.date(old["through"] as? String ?? "")
+        let earliest = (cycleState["events"] as? [[String: Any]] ?? [])
+            .compactMap { Self.date($0["inferredStartAt"] as? String ?? "") }.min()
+        let floor = Date().addingTimeInterval(-366 * 86_400)
+        let from = max(floor, previous?.addingTimeInterval(-300) ?? earliest ?? floor)
+        let through = Self.now()
+        fetchQuotaHistoryPage(hub, base: base, from: from, through: through, cursor: nil,
+                              accumulated: [], old: old)
+    }
+
+    private func fetchQuotaHistoryPage(_ hub: HubConfig, base: URL, from: Date, through: String,
+                                       cursor: String?, accumulated: [[String: Any]], old: [String: Any]) {
+        var parts = URLComponents(url: base, resolvingAgainstBaseURL: false)
+        parts?.queryItems = [URLQueryItem(name: "limit", value: "200"),
+                             URLQueryItem(name: "from", value: ISO8601DateFormatter().string(from: from)),
+                             URLQueryItem(name: "to", value: through)]
+        if let cursor { parts?.queryItems?.append(URLQueryItem(name: "cursor", value: cursor)) }
+        guard let target = parts?.url else { quotaHistoryFetching = false; return }
+        var request = URLRequest(url: target); request.timeoutInterval = 15
+        request.setValue("Bearer \(hub.secret)", forHTTPHeaderField: "Authorization")
+        http.dataTask(with: request) { [weak self] data, response, _ in
+            guard let self else { return }
+            self.queue.async {
+                guard self.config.map({ self.scope($0) }) == self.scope(hub) else {
+                    self.quotaHistoryFetching = false; return
+                }
+                guard (response as? HTTPURLResponse)?.statusCode == 200, let data,
+                      data.count <= 4_194_304,
+                      let page = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                      page["schemaVersion"] as? Int == 1,
+                      page["snapshotThrough"] as? String == through,
+                      let rows = page["observations"] as? [[String: Any]],
+                      accumulated.count + rows.count <= 50_000 else {
+                    self.quotaHistoryFetching = false; return
+                }
+                let collected = accumulated + rows
+                if let next = page["nextCursor"] as? String {
+                    guard next != cursor else { self.quotaHistoryFetching = false; return }
+                    self.fetchQuotaHistoryPage(hub, base: base, from: from, through: through,
+                                               cursor: next, accumulated: collected, old: old)
+                    return
+                }
+                let prior = old["observations"] as? [[String: Any]] ?? []
+                var seen = Set<String>()
+                let merged = (prior + collected).filter { row in
+                    guard let id = row["id"] as? String, !seen.contains(id),
+                          let received = Self.date(row["receivedAt"] as? String ?? ""),
+                          received >= Date().addingTimeInterval(-366 * 86_400) else { return false }
+                    seen.insert(id); return true
+                }.suffix(50_000)
+                let next: [String: Any] = ["scope": self.scope(hub), "through": through,
+                                           "observations": Array(merged)]
+                do {
+                    try Self.writeJSON(next, to: self.directory.appendingPathComponent("quota-history.json"))
+                    self.quotaHistoryState = next
+                } catch { /* Retain the last verified history on disk and in memory. */ }
+                self.quotaHistoryFetching = false
             }
         }.resume()
     }
@@ -537,9 +611,9 @@ final class NativeService: @unchecked Sendable {
         case ("GET", "/api/beta/status"):
             respond(connection, 200, status())
         case ("GET", "/api/stats"):
-            respondData(connection, 200, config?.enabled == true ? remoteStats ?? stats : stats)
+            respondData(connection, 200, config?.enabled == true ? pricedRemote()?.stats ?? pricedLocal() : pricedLocal())
         case ("GET", "/local/api/stats"):
-            respondData(connection, 200, stats)
+            respondData(connection, 200, pricedLocal())
         case ("GET", "/api/quota/cycles"):
             respond(connection, 200, ["schemaVersion": 1, "available": cycleCapability,
                     "events": cycleState["events"] ?? [], "updatedAt": cycleState["updatedAt"] ?? NSNull()])
@@ -606,6 +680,7 @@ final class NativeService: @unchecked Sendable {
             if config?.address != value.address || config?.deviceId != value.deviceId || config?.secret != value.secret {
                 remoteStats = nil; remoteHistory = nil; remoteDevices = nil
                 cycleState = [:]; cycleCapability = false; cycleNextCheck = .distantPast
+                quotaHistoryState = [:]; quotaHistoryFetching = false
                 quotaNextCheck = .distantPast
             }
             config = value
@@ -622,22 +697,43 @@ final class NativeService: @unchecked Sendable {
          "error": (config?.uploadEnabled == true ? uploadError ?? readError : readError) as Any? ?? NSNull(),
          "syncing": establishingHandoff || uploading]
     }
+    // Display-only projection: syncLocal/upload continue using the original
+    // NativeSnapshot and HubHandoff counters, so prices cannot backfill the ledger.
+    private func pricedLocal() -> Data {
+        if let localPricingCache { return localPricingCache }
+        guard let root = (try? JSONSerialization.jsonObject(with: stats)) as? [String: Any],
+              let devices = try? JSONSerialization.data(withJSONObject: ["devices": root["devices"] ?? []]) else { return stats }
+        let value = (try? NativeModelPricing.enrich(stats: stats, devices: devices,
+                            deviceID: deviceID, events: latestEvents).stats) ?? stats
+        localPricingCache = value
+        return value
+    }
+    private func pricedRemote() -> (stats: Data, devices: Data)? {
+        guard let remoteStats else { return nil }
+        guard let remoteDevices else { return (remoteStats, Data()) }
+        if let remotePricingCache { return remotePricingCache }
+        let value = (try? NativeModelPricing.enrich(stats: remoteStats, devices: remoteDevices,
+                            deviceID: config?.deviceId ?? deviceID, events: latestEvents)) ?? (remoteStats, remoteDevices)
+        remotePricingCache = value
+        return value
+    }
     private func currentRemoteConversion() -> Data {
-        guard let remoteStats, let remoteDevices else { return localConversion }
+        guard remoteDevices != nil, let priced = pricedRemote() else { return localConversion }
         let local = (try? JSONSerialization.jsonObject(with: localConversion)) as? [String: Any]
         let hourly = (local?["trend"] as? [String: Any])?["hourly"]
             .flatMap { try? JSONSerialization.data(withJSONObject: $0) }
-        return (try? NativeQuotaConversion.make(stats: remoteStats, devices: remoteDevices,
+        return (try? NativeQuotaConversion.make(stats: priced.stats, devices: priced.devices,
                                                 deviceID: deviceID, hourly: hourly,
                                                 selectedChoiceID: conversionChoiceID,
                                                 cycleEvents: cycleState["events"] as? [[String: Any]] ?? [],
-                                                cycleCapability: cycleCapability)) ?? localConversion
+                                                cycleCapability: cycleCapability,
+                                                observations: quotaHistoryState["observations"] as? [[String: Any]] ?? [])) ?? localConversion
     }
     private func status() -> [String: Any] {
         // Settings describe THIS collector, never capabilities of other Hub devices.
         let providerStatus = NativeQuotaObservation.settingsProviders(
             latest: quotaState["latest"] as? [String: Any], error: quotaError)
-        return ["version": "0.7.0", "session": session, "pid": Int(getpid()), "paused": paused,
+        return ["version": "0.7.1", "session": session, "pid": Int(getpid()), "paused": paused,
          "lastSuccess": lastSuccess as Any? ?? NSNull(), "failure": failure as Any? ?? NSNull(),
          "collecting": scanning, "sync": syncStatus(), "providers": providerStatus,
          "quota": ["collecting": quotaCollecting, "error": quotaError as Any? ?? NSNull(),

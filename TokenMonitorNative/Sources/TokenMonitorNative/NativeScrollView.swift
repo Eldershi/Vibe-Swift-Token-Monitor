@@ -36,6 +36,7 @@ struct HistoryScrollView<Content: View>: NSViewRepresentable {
     var resetKey: String
     var prepends = false
     var points: [TrendPoint]
+    var drawingRevision = ""
     var tint: Color?
     var heatmapHover = false
     var barHover: ChartHoverGeometry? = nil
@@ -48,7 +49,7 @@ struct HistoryScrollView<Content: View>: NSViewRepresentable {
         let key = HistoryDrawingKey(size: NSSize(width: width, height: height), points: points, tint: tint, scheme: context.environment.colorScheme,
                                     differentiate: context.environment.accessibilityDifferentiateWithoutColor,
                                     locale: context.environment.locale, calendar: context.environment.calendar,
-                                    scale: context.environment.displayScale)
+                                    scale: context.environment.displayScale, revision: drawingRevision)
         if view.drawingKey != key {
             view.heatmapOverlay?.clear()
             view.drawingKey = key
@@ -69,6 +70,7 @@ struct HistoryDrawingKey: Equatable {
     let locale: Locale
     let calendar: Calendar
     let scale: CGFloat
+    let revision: String
 }
 private final class HistoryDocumentView: NSView {
     override var isFlipped: Bool { true }

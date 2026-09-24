@@ -148,3 +148,23 @@ private func quotaFixture(account: String = "synthetic-account", cost: Double = 
     #expect(short.result.range?.remaining == 85)
     #expect(try snapshot("removed-window").choiceId == weekly.choiceId)
 }
+
+@Test func quotaAllocationPrefersCodexWeightsOverAPIDollars() throws {
+    let window: [String: Any] = ["kind": "weekly", "windowMinutes": 10080, "remainingPercent": 40,
+                                "resetsAt": "2026-09-28T00:00:00Z", "limitId": "codex"]
+    let provider: [String: Any] = ["provider": "codex", "status": "ok", "accountKey": "synthetic-account",
+        "sourceDeviceId": "synthetic-device", "updatedAt": "2026-09-22T00:00:00Z", "windows": [window]]
+    var device = quotaFixture()
+    device["history"] = ["daily": [["date": "2026-09-20",
+        "perClient": ["codex": ["tokens": 100, "cost": 10, "quotaWeight": 30]],
+        "perModel": ["synthetic-model": ["tokens": 100, "cost": 10, "quotaWeight": 30]]]]]
+    let output = try NativeQuotaConversion.make(
+        stats: JSONSerialization.data(withJSONObject: ["limits": ["providers": [provider]]]),
+        devices: JSONSerialization.data(withJSONObject: ["devices": [device, quotaFixture(id: "peer")]]),
+        deviceID: "synthetic-device", hourly: nil,
+        now: ISO8601DateFormatter().date(from: "2026-09-22T00:05:00Z")!)
+    let decoded = try JSONDecoder().decode(ConversionSnapshot.self, from: output)
+    let rows = try #require(decoded.result.approximation?.devices)
+    #expect(abs(try #require(rows.first { $0.id == "synthetic-device" }?.quota) - 45) < 0.0001)
+    #expect(abs(try #require(rows.first { $0.id == "peer" }?.quota) - 15) < 0.0001)
+}

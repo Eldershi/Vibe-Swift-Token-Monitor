@@ -1,8 +1,8 @@
 # 构建与架构 / Build and architecture
 
-当前源码生成 macOS 0.7.0 原生应用，目标为 Apple Silicon、macOS 26+。需要完整 Xcode，包含 macOS 26 或更新 SDK；本次使用 Xcode / macOS 27 验证。SwiftPM 固定 Sparkle 2.10.0，首次构建需要下载依赖；运行应用不需要 Node.js。
+当前源码生成 macOS 0.7.1 原生应用，目标为 Apple Silicon、macOS 26+。需要完整 Xcode，包含 macOS 26 或更新 SDK；本次使用 Xcode / macOS 27 验证。SwiftPM 固定 Sparkle 2.10.0，首次构建需要下载依赖；运行应用不需要 Node.js。
 
-The current source builds the native macOS 0.7.0 app for Apple Silicon and macOS 26+. Full Xcode with the macOS 26 SDK or newer is required. This release was verified with Xcode / macOS 27. SwiftPM pins Sparkle 2.10.0 and downloads it on first build. Node.js is not an app runtime dependency.
+The current source builds the native macOS 0.7.1 app for Apple Silicon and macOS 26+. Full Xcode with the macOS 26 SDK or newer is required. This release was verified with Xcode / macOS 27. SwiftPM pins Sparkle 2.10.0 and downloads it on first build. Node.js is not an app runtime dependency.
 
 ## 构建 / Build
 

@@ -3,8 +3,9 @@ import Security
 import MonitorCore
 
 enum Identity {
+    static var isReadOnlyPreview: Bool { Bundle.main.object(forInfoDictionaryKey: "TokenMonitorReadOnlyPreview") as? Bool == true }
     static var isBeta: Bool { ["local.tokenmonitor.native.beta", "local.tokenmonitor.native.beta2"].contains(Bundle.main.bundleIdentifier ?? "") }
-    static var isNativeBeta2: Bool { Bundle.main.bundleIdentifier == "local.tokenmonitor.native.beta2" }
+    static var isNativeBeta2: Bool { Bundle.main.bundleIdentifier == "local.tokenmonitor.native.beta2" || isReadOnlyPreview }
     static var servicePlist: String { isNativeBeta2 ? "local.tokenmonitor.native.beta2.backend.plist" : "local.tokenmonitor.native.beta.backend.plist" }
     static var version: String {
         Bundle.main.object(forInfoDictionaryKey: "TokenMonitorReleaseVersion") as? String
@@ -13,7 +14,7 @@ enum Identity {
     }
     static var bundleID: String { isNativeBeta2 ? "local.tokenmonitor.native.beta2" : isBeta ? "local.tokenmonitor.native.beta" : "local.tokenmonitor.native" }
     static var storageName: String { isNativeBeta2 ? "Token Monitor Native Beta 2" : isBeta ? "Token Monitor Native Beta" : "Token Monitor Native" }
-    static var name: String { isNativeBeta2 ? "Token Monitor" : storageName }
+    static var name: String { isReadOnlyPreview ? "Token Monitor Preview" : isNativeBeta2 ? "Token Monitor" : storageName }
     static var directory: URL {
         FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent(storageName, isDirectory: true)
     }

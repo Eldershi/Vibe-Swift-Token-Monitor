@@ -8,8 +8,16 @@ python3 "$ROOT/scripts/check-localization.py"
 STAGE="$(mktemp -d "${TMPDIR:-/tmp}/token-monitor-beta-build.XXXXXX")"
 trap 'rm -rf "$STAGE"' EXIT
 # Resource accessors embed the build directory; keep it outside the source checkout.
-swift build --build-system native --package-path "$ROOT" --scratch-path "$STAGE/build" -c release
-BIN="$(swift build --build-system native --package-path "$ROOT" --scratch-path "$STAGE/build" -c release --show-bin-path)"
+SCRATCH="$STAGE/build"
+SWIFT_OPTIONS=()
+# Local restricted builds can reuse the already resolved checkout without
+# starting SwiftPM's nested sandbox or fetching the same dependency again.
+if [[ "${TOKEN_MONITOR_LOCAL_BUILD:-0}" == 1 ]]; then
+  SCRATCH="$ROOT/.build"
+  SWIFT_OPTIONS=(--disable-sandbox --disable-automatic-resolution)
+fi
+swift build ${SWIFT_OPTIONS[@]+"${SWIFT_OPTIONS[@]}"} --build-system native --package-path "$ROOT" --scratch-path "$SCRATCH" -c release
+BIN="$(swift build ${SWIFT_OPTIONS[@]+"${SWIFT_OPTIONS[@]}"} --build-system native --package-path "$ROOT" --scratch-path "$SCRATCH" -c release --show-bin-path)"
 # The native SwiftPM driver copies asset catalogs; compile them explicitly.
 xcrun actool "$ROOT/Sources/TokenMonitorNative/Resources/Icons.xcassets" --compile "$BIN/TokenMonitorNative_TokenMonitorNative.bundle" --platform macosx --minimum-deployment-target 26.0 --target-device mac --output-format human-readable-text
 rm -rf "$BIN/TokenMonitorNative_TokenMonitorNative.bundle/Icons.xcassets"
@@ -33,7 +41,7 @@ while IFS= read -r -d '' binary; do
     codesign --force --sign "$SIGNING_IDENTITY" "$binary"
   fi
 done < <(find "$APP/Contents" -type f -print0)
-bash "$ROOT/scripts/embed-sparkle.sh" "$APP" "$STAGE/build/artifacts/sparkle/Sparkle"
+bash "$ROOT/scripts/embed-sparkle.sh" "$APP" "$SCRATCH/artifacts/sparkle/Sparkle"
 codesign --force --sign "$SIGNING_IDENTITY" --identifier local.tokenmonitor.native.beta2 "$APP"
 codesign --verify --deep --strict "$APP"
 "$APP/Contents/MacOS/TokenMonitorNative" --smoke-test
@@ -59,6 +67,6 @@ printf 'Built Token Monitor: %s\n' "$ROOT/dist/Token Monitor.app"
 
 KEY="${UPDATE_SIGNING_KEY:-$ROOT/../.local-private/update-signing/ed25519.seed}"
 rm -f "$ROOT/dist/appcast-native.xml"
-if [[ -f "$KEY" ]]; then
-  python3 "$ROOT/scripts/make-update-feed.py" --app "$APP" --archive "$ARCHIVE" --key "$KEY" --sign-tool "$STAGE/build/artifacts/sparkle/Sparkle/bin/sign_update"
+if [[ -f "$KEY" && "$RELEASE_VERSION" != *-beta.* ]]; then
+  python3 "$ROOT/scripts/make-update-feed.py" --app "$APP" --archive "$ARCHIVE" --key "$KEY" --sign-tool "$SCRATCH/artifacts/sparkle/Sparkle/bin/sign_update"
 fi
